@@ -1,2 +1,2 @@
 # detecter-inline
-Source code and examples for CAV2020 submission
+Source code and system for CAV2020 submission
