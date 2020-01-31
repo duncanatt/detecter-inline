@@ -32,10 +32,10 @@
 -include("log.hrl").
 
 %%% Public API exports.
--export([weave/5, weave_file/5]).
+-export([weave/5, weave_file/3]).
 
 %%% Type exports.
--export_type([comp_ret/0, filter_spec/0]).
+-export_type([comp_ret/0, filter/0]).
 
 %%% Callback exports.
 -export([parse_transform/2]).
@@ -54,19 +54,22 @@
 -define(TRACE_FUN, submit).
 
 -define(OPT_MFA_SPEC, mfa_spec).
--define(OPT_FILTER_SPEC, filter_spec).
+-define(OPT_FILTER, filter).
 
 %%% ----------------------------------------------------------------------------
 %%% Type declarations.
 %%% ----------------------------------------------------------------------------
 
--type option() :: atom() | {atom(), term()} | {'d', atom(), term()} |
-{?OPT_MFA_SPEC, MfaSpec :: monitor:mfa_spec()} |
-{?OPT_FILTER_SPEC, FilterSpec :: filter_spec()}.
+%%-type option() :: atom() | {atom(), term()} | {'d', atom(), term()} |
+%%{?OPT_MFA_SPEC, MfaSpec :: monitor:mfa_spec()} |
+%%{?OPT_FILTER, FilterSpec :: filter()}.
+
+
+-type option() :: opts:option() | {filter, function()}.
 %% Options passed to the parse_transform function to control the weaving of
 %% tracing and monitor.
 
--type filter_spec() :: fun((Pattern :: term()) -> boolean).
+-type filter() :: fun((Pattern :: term()) -> boolean).
 %% Filter used to suppress trace events from being generated and sent to the
 %% monitor for analysis.
 
@@ -134,17 +137,18 @@
   IncDir :: string(),
   BinDir :: string(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec().
+  FilterSpec :: filter().
 weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
   when is_function(MfaSpec, 1), is_function(FilterSpec, 1) ->
   case filelib:ensure_dir(util:as_dir_name(BinDir)) of
     ok ->
       CompileOpts = [
         {i, IncDir}, {i, BinDir}, {outdir, BinDir}, return,
-        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER_SPEC, FilterSpec},
+        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER, FilterSpec},
 %%        {parse_transform, ?MODULE}, 'E'
         {parse_transform, ?MODULE}, {d, 'WEAVED'}
       ],
+      % TODO: Fix this!
 
       % Recursively obtain list of source files and apply AST transformation.
       Files = filelib:fold_files(
@@ -159,9 +163,8 @@ weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
 %% syntax tree.
 %%
 %% {@params
-%%   {@name SrcDir}
-%%   {@desc The directory path containing the source or object files to be
-%%          inspected and weaved.
+%%   {@name SrcFile}
+%%   {@desc The file to be inspected and weaved.
 %%   }
 %%   {@name IncDir}
 %%   {@desc The directory path containing any include files that the files in
@@ -183,30 +186,54 @@ weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
 %% {@returns A list containing the compilation result of each file in `SrcDir'.
 %%           Warnings are included if present.
 %% }
--spec weave_file(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec) -> comp_ret()
+-spec weave_file(SrcFile, MfaSpec, Opts) -> comp_ret()
   when
-  SrcDir :: string(),
-  IncDir :: string(),
-  BinDir :: string(),
+  SrcFile :: string(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec().
-weave_file(File, IncDir, BinDir, MfaSpec, FilterSpec)
-  when is_function(MfaSpec, 1), is_function(FilterSpec, 1) ->
-  case filelib:ensure_dir(util:as_dir_name(BinDir)) of
+  Opts :: opts:options().
+% TODO: Fix this DOC!.
+weave_file(File, MfaSpec, Opts) when is_function(MfaSpec, 1)  ->
+
+  OutDir = opts:out_dir_opt(Opts),
+  IncDir = opts:include_opt(Opts),
+  FilterOpt = filter_opt(Opts),
+  case filelib:ensure_dir(util:as_dir_name(OutDir)) of
     ok ->
       CompileOpts = [
-        {i, IncDir}, {i, BinDir}, {outdir, BinDir}, return,
-        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER_SPEC, FilterSpec},
+        {i, IncDir}, {i, OutDir}, {outdir, OutDir}, return,
+        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER, FilterOpt},
 %%        {parse_transform, ?MODULE}, 'E'
          {parse_transform, ?MODULE}, {d, 'WEAVED'}
       ],
 
-      % Apply AST transformation.
-      compile:file(File, CompileOpts);
+      CompileOpts0 =
+        case opts:erl_opt(Opts) of
+          true -> CompileOpts ++ ['E']; _ -> CompileOpts
+        end,
+
+      % Apply AST transformation. If file was generated as transformed source,
+      % rename it to .erl.
+      Ret = compile:file(File, CompileOpts0),
+      case opts:erl_opt(Opts) of
+        true ->
+          Ext = opts:file_ext(Opts),
+          FileBase = filename:basename(File, Ext),
+%%          E = filename:join(opts:out_dir_opt(Opts), FileBase ++ ".E"),
+          file:rename(
+            filename:join(opts:out_dir_opt(Opts), FileBase ++ ".E"),
+            filename:join(opts:out_dir_opt(Opts), FileBase ++ Ext)
+          );
+        _ ->
+          ok
+      end,
+      Ret;
     {error, Reason} ->
       erlang:raise(error, Reason, erlang:get_stacktrace())
   end.
 
+
+filter_opt(Opts) ->
+  proplists:get_value(?OPT_FILTER, Opts, fun monitor:filter/1).
 
 %%% ----------------------------------------------------------------------------
 %%% Callbacks.
@@ -220,10 +247,8 @@ weave_file(File, IncDir, BinDir, MfaSpec, FilterSpec)
   Opts :: [option()].
 parse_transform(Ast, Opts) ->
   MfaSpec = proplists:get_value(?OPT_MFA_SPEC, Opts),
-  FilterSpec = proplists:get_value(?OPT_FILTER_SPEC, Opts),
-  {_, Ast0} = trans_ast(Ast, MfaSpec, FilterSpec, 0),
-%%  ?INFO("Returned ID: ~p", [Id]),
-  io:format("Ast: ~p~n", [Ast0]),
+  Filter = proplists:get_value(?OPT_FILTER, Opts),
+  {_, Ast0} = trans_ast(Ast, MfaSpec, Filter, 0),
   Ast0.
 
 
@@ -238,7 +263,7 @@ parse_transform(Ast, Opts) ->
   when
   Ast :: [erl_parse:abstract_form()],
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 trans_ast([], _, _, Id) ->
   {Id, []};
@@ -254,7 +279,7 @@ trans_ast([Form | Forms], MfaSpec, FilterSpec, Id) ->
   when
   Form :: erl_parse:abstract_form(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 trans_form({function, Line, Name, Arity, Clauses}, MfaSpec, FilterSpec, Id) ->
   {Id0, Clauses0} = trans_clauses(Clauses, MfaSpec, FilterSpec, Id),
@@ -270,7 +295,7 @@ trans_form(Form, _, _, Id) ->
   when
   Body :: [erl_parse:abstract_expr()],
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 trans_body([], _, _, Id) ->
   {Id, []};
@@ -309,7 +334,7 @@ trans_body([Expr | Body], MfaSpec, FilterSpec, Id) ->
   when
   Expr :: erl_parse:abstract_expr(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 % Blocks.
 trans_expr({block, Line, Body}, MfaSpec, FilterSpec, Id) ->
@@ -448,7 +473,7 @@ trans_expr(Expr, _, _, Id) ->
   when
   Clauses :: [erl_parse:abstract_clause()],
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 trans_clauses([], _, _, Id) ->
   {Id, []};
@@ -463,7 +488,7 @@ trans_clauses([Clause | Clauses], MfaSpec, FilterSpec, Id) ->
   when
   Clause :: erl_parse:abstract_clause(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter_spec(),
+  FilterSpec :: filter(),
   Id :: non_neg_integer().
 trans_clause({clause, Line, Patterns, Guards, Body}, MfaSpec, FilterSpec, Id) ->
   {Id0, Body0} = trans_body(Body, MfaSpec, FilterSpec, Id),
@@ -821,21 +846,30 @@ create_submit(Line, Event) ->
     [Event]).
 
 wrap_fun_call(Line, Fun, Args) ->
-  case erlang:fun_info_mfa(Fun) of
-    {erl_eval, _, 1} ->
+  ?TRACE("Fun info: ~p", [erlang:fun_info_mfa(Fun)]),
+  ?TRACE("Fun info type: ~p", [erlang:fun_info(Fun, type)]),
+%%  case erlang:fun_info_mfa(Fun) of
+    case erlang:fun_info(Fun, type) of
+%%    {erl_eval, _, 1} ->
+      {type, local} ->
 
       % Fun is specified in anonymous form. Unwrap the abstract syntax of
       % fun body to create full function call. Said function is embedded as is
       % in the target code.
+      ?DEBUG("Fun: ~p", [erlang:fun_info(Fun, env)]),
       {env, [{[], {eval, _}, {value, _}, Body}]} = erlang:fun_info(Fun, env),
       Fun0 = abs_fun(Line, Body),
 
+      ?TRACE("Fun is in anonymous form: ~p", [Fun]),
       % Create local call that applies the function to arguments.
       abs_local_call(Line, Fun0, Args);
-    {Mod0, Fun0, 1} ->
+%%    {Mod0, Fun0, 1} ->
+    {type, external} ->
 
+      ?TRACE("Fun is in mfa form: ~p", [Fun]),
       % Fun specified in normal m:f/a form. Create call that applies function
       % to arguments.
+      {Mod0, Fun0, 1} = erlang:fun_info_mfa(Fun),
       abs_remote_call(Line, abs_atom(Line, Mod0), abs_atom(Line, Fun0), Args)
   end.
 

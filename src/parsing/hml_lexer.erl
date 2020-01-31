@@ -357,7 +357,7 @@ adjust_line(T, A, [_|Cs], L) ->
 %% return signal either an unrecognised character or end of current
 %% input.
 
--file("src/monitoring/hml_lexer.erl", 359).
+-file("src/parsing/hml_lexer.erl", 359).
 yystate() -> 57.
 
 yystate(64, [C|Ics], Line, Tlen, _, _) when C >= 48, C =< 57 ->

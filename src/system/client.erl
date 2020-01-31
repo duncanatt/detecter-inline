@@ -31,7 +31,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 %%% Public API exports.
--export([]).
+-export([add/2, mul/2]).
 
 %%% Internal exports.
 -export([]).
@@ -53,7 +53,13 @@
 %%% ----------------------------------------------------------------------------
 %%% Public API.
 %%% ----------------------------------------------------------------------------
+add(A, B) ->
+  {add, AB} = util:rpc(server, {add, A, B}),
+  AB.
 
+mul(A, B) ->
+  {mul, AB} = util:rpc(server, {mul, A, B}),
+  AB.
 
 %%% ----------------------------------------------------------------------------
 %%% Internal exports.

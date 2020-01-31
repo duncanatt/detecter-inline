@@ -31,10 +31,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 %%% Public API exports.
--export([as_dir_name/1]).
-
-%%% Internal exports.
--export([]).
+-export([as_dir_name/1, rpc/2]).
 
 %%% Type exports.
 -export_type([]).
@@ -72,6 +69,25 @@ as_dir_name(Last = [_]) ->
   Last;
 as_dir_name([Char | Name]) ->
   [Char | as_dir_name(Name)].
+
+%% @doc Issues a request and waits for a response.
+%%
+%% <dl>
+%%   <dt>`To'</dt>
+%%   <dd>The PID or registered name of the target process.</dd>
+%%   <dt>`Req'</dt>
+%%   <dd>The request to send.</dd>
+%% </dl>
+%%
+%% <p><b>Returns:</b> The returned response.</p>
+-spec rpc(To :: pid() | atom(), Req :: term()) -> term().
+rpc(To, Req) when is_pid(To); is_atom(To) ->
+  Ref = erlang:make_ref(),
+  To ! {self(), Ref, Req},
+  receive
+    {Ref, Resp} ->
+      Resp
+  end.
 
 %%% ----------------------------------------------------------------------------
 %%% Internal exports.

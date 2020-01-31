@@ -71,7 +71,6 @@
 %%% Type declarations.
 %%% ----------------------------------------------------------------------------
 
-%%-type option() :: {outdir, directory()} | {i, directory()} | erl | v.
 -type option() :: {outdir, directory()} | erl | v.
 %% Compiler options.
 
@@ -235,8 +234,10 @@
 %% monitor
 %%   max(X.
 %%     and(
-%%       [S ? @{req, A1, A2@}] and([S ! @{resp, AA@} when AA =:= A1 + A2]X),
-%%       [S ? @{req, A1, A2@}] and([S ! @{resp, AA@} when AA =/= A1 + A2]ff)
+%%       [S ? @{req, A1, A2@}] and(
+%%         [S ! @{resp, AA@} when AA =/= A1 + A2]ff,
+%%         [S ! @{resp, AA@} when AA =:= A1 + A2]X)
+%%       )
 %%     )
 %%   ).
 %% '''

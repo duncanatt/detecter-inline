@@ -31,10 +31,10 @@
 -include_lib("stdlib/include/assert.hrl").
 
 %%% Public API exports.
--export([]).
+-export([start/1, stop/0]).
 
 %%% Internal exports.
--export([]).
+-export([loop/1]).
 
 %%% Type exports.
 -export_type([]).
@@ -44,6 +44,8 @@
 %%% Macro and record definitions.
 %%% ----------------------------------------------------------------------------
 
+-define(MODE_OK, ok).
+-define(MODE_BUGGY, buggy).
 
 %%% ----------------------------------------------------------------------------
 %%% Type declarations.
@@ -54,10 +56,37 @@
 %%% Public API.
 %%% ----------------------------------------------------------------------------
 
+start(Mode) ->
+  register(?MODULE, Pid = spawn(?MODULE, loop, [
+    if Mode =:= ?MODE_OK -> 0; Mode =:= ?MODE_BUGGY -> 1 end
+  ])),
+  Pid.
+
+stop() ->
+  util:rpc(?MODULE, stop).
+
 
 %%% ----------------------------------------------------------------------------
 %%% Internal exports.
 %%% ----------------------------------------------------------------------------
+
+loop(ErrFact) ->
+  receive
+    {From, Ref, {add, A, B}} ->
+      From ! {Ref, {add, A + B + ErrFact}},
+      loop(ErrFact);
+
+    {From, Ref, {mul, A, B}} ->
+      From ! {Ref, {mul, A * B + ErrFact}},
+      loop(ErrFact);
+
+    {From, Ref, stop} ->
+      From ! {Ref, {ok, stopped}};
+
+    Any ->
+      io:format("WARN: unknown request ~w.~n", [Any]),
+      loop(ErrFact)
+  end.
 
 
 %%% ----------------------------------------------------------------------------
