@@ -32,7 +32,7 @@
 -include("log.hrl").
 
 %%% Public API exports.
--export([weave/5, weave_file/3]).
+-export([weave/3, weave_file/3]).
 
 %%% Type exports.
 -export_type([comp_ret/0, filter/0]).
@@ -47,8 +47,6 @@
 -define(MONITOR, '$monitor').
 
 -define(EXT_REGEX, "^.*\\.erl$").
-%%-define(COMPILE_OPTS, [{i, IncDir}, {i, BinDir}, {outdir, BinDir}, return,
-%%  {parse_transform, ?MODULE}, 'E']).
 
 -define(TRACE_MOD, monitor).
 -define(TRACE_FUN, submit).
@@ -56,18 +54,17 @@
 -define(OPT_MFA_SPEC, mfa_spec).
 -define(OPT_FILTER, filter).
 
+
 %%% ----------------------------------------------------------------------------
 %%% Type declarations.
 %%% ----------------------------------------------------------------------------
 
-%%-type option() :: atom() | {atom(), term()} | {'d', atom(), term()} |
-%%{?OPT_MFA_SPEC, MfaSpec :: monitor:mfa_spec()} |
-%%{?OPT_FILTER, FilterSpec :: filter()}.
-
-
 -type option() :: opts:option() | {filter, function()}.
 %% Options passed to the parse_transform function to control the weaving of
 %% tracing and monitor.
+
+-type options() :: [option()].
+%% Compiler option list.
 
 -type filter() :: fun((Pattern :: term()) -> boolean).
 %% Filter used to suppress trace events from being generated and sent to the
@@ -92,13 +89,10 @@
 -type comp_ret() :: mod_ret() | err_ret().
 %% Compilation result.
 
+
 %%% ----------------------------------------------------------------------------
 %%% Public API.
 %%% ----------------------------------------------------------------------------
-
-% TODO: Test also weave for the entire source dir and see how master-slave is instrumented.
-
-% TODO: Test with running.
 
 % TODO: Refactor with erl_parse module. Some other time.
 
@@ -111,12 +105,6 @@
 %%   {@desc The directory path containing the source or object files to be
 %%          inspected and weaved.
 %%   }
-%%   {@name IncDir}
-%%   {@desc The directory path containing any include files that the files in
-%%          `SrcDir' depend on.
-%%   }
-%%   {@name BinDir}
-%%   {@desc The directory path where the weaved object files are to be written.}
 %%   {@name MfaSpec}
 %%   {@desc The function that specifies which remote (<i>i.e.,</i> external)
 %%          function calls are to be weaved with tracing and monitor
@@ -128,32 +116,44 @@
 %%       in debug mode.
 %% }
 %%
+%% {@par The following options are available:
+%%       {@dl
+%%         {@term `@{outdir, Dir@}'}
+%%         {@desc The directory where the generated weaved files should
+%%                be written. Defaults to the current directory `.'.
+%%         }
+%%         {@term `@{i, Dir@}'}
+%%         {@desc The directory containing include files that the source files
+%%                in `SrcDir' depend on.
+%%         }
+%%         {@term `@{filer, Fun@}'}
+%%         {@desc The filter function that suppressed events. Defaults to allows
+%%                all.
+%%         }
+%%         {@term `erl'}
+%%         {@desc Instructs the compiler to output the generated files as
+%%                Erlang source code rather than beam. Defaults to beam.
+%%         }
+%%       }
+%% }
+%%
 %% {@returns A list containing the compilation result of each file in `SrcDir'.
 %%           Warnings are included if present.
 %% }
--spec weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec) -> [comp_ret()]
+-spec weave(SrcDir, MfaSpec, Opts) -> [comp_ret()]
   when
   SrcDir :: string(),
-  IncDir :: string(),
-  BinDir :: string(),
   MfaSpec :: monitor:mfa_spec(),
-  FilterSpec :: filter().
-weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
-  when is_function(MfaSpec, 1), is_function(FilterSpec, 1) ->
-  case filelib:ensure_dir(util:as_dir_name(BinDir)) of
+  Opts :: options().
+weave(SrcDir, MfaSpec, Opts) when is_function(MfaSpec, 1) ->
+  case filelib:ensure_dir(util:as_dir_name(opts:out_dir_opt(Opts))) of
     ok ->
-      CompileOpts = [
-        {i, IncDir}, {i, BinDir}, {outdir, BinDir}, return,
-        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER, FilterSpec},
-%%        {parse_transform, ?MODULE}, 'E'
-        {parse_transform, ?MODULE}, {d, 'WEAVED'}
-      ],
-      % TODO: Fix this!
 
       % Recursively obtain list of source files and apply AST transformation.
       Files = filelib:fold_files(
         SrcDir, ?EXT_REGEX, true, fun(F, Acc) -> [F | Acc] end, []),
-      [compile:file(File, CompileOpts) || File <- Files];
+      [write_file(File, MfaSpec, Opts) || File <- Files];
+
     {error, Reason} ->
       erlang:raise(error, Reason, erlang:get_stacktrace())
   end.
@@ -166,12 +166,6 @@ weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
 %%   {@name SrcFile}
 %%   {@desc The file to be inspected and weaved.
 %%   }
-%%   {@name IncDir}
-%%   {@desc The directory path containing any include files that the files in
-%%          `SrcDir' depend on.
-%%   }
-%%   {@name BinDir}
-%%   {@desc The directory path where the weaved object files are to be written.}
 %%   {@name MfaSpec}
 %%   {@desc The function that specifies which remote (<i>i.e.,</i> external)
 %%          function calls are to be weaved with tracing and monitor
@@ -183,6 +177,8 @@ weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
 %%       in debug mode.
 %% }
 %%
+%% {@par See {@link weave/3} for configuration options.}
+%%
 %% {@returns A list containing the compilation result of each file in `SrcDir'.
 %%           Warnings are included if present.
 %% }
@@ -190,56 +186,33 @@ weave(SrcDir, IncDir, BinDir, MfaSpec, FilterSpec)
   when
   SrcFile :: string(),
   MfaSpec :: monitor:mfa_spec(),
-  Opts :: opts:options().
-% TODO: Fix this DOC!.
-weave_file(File, MfaSpec, Opts) when is_function(MfaSpec, 1)  ->
-
-  OutDir = opts:out_dir_opt(Opts),
-  IncDir = opts:include_opt(Opts),
-  FilterOpt = filter_opt(Opts),
-  case filelib:ensure_dir(util:as_dir_name(OutDir)) of
+  Opts :: options().
+weave_file(File, MfaSpec, Opts) when is_function(MfaSpec, 1) ->
+  case filelib:ensure_dir(util:as_dir_name(opts:out_dir_opt(Opts))) of
     ok ->
-      CompileOpts = [
-        {i, IncDir}, {i, OutDir}, {outdir, OutDir}, return,
-        {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER, FilterOpt},
-%%        {parse_transform, ?MODULE}, 'E'
-         {parse_transform, ?MODULE}, {d, 'WEAVED'}
-      ],
 
-      CompileOpts0 =
-        case opts:erl_opt(Opts) of
-          true -> CompileOpts ++ ['E']; _ -> CompileOpts
-        end,
-
-      % Apply AST transformation. If file was generated as transformed source,
-      % rename it to .erl.
-      Ret = compile:file(File, CompileOpts0),
-      case opts:erl_opt(Opts) of
-        true ->
-          Ext = opts:file_ext(Opts),
-          FileBase = filename:basename(File, Ext),
-%%          E = filename:join(opts:out_dir_opt(Opts), FileBase ++ ".E"),
-          file:rename(
-            filename:join(opts:out_dir_opt(Opts), FileBase ++ ".E"),
-            filename:join(opts:out_dir_opt(Opts), FileBase ++ Ext)
-          );
-        _ ->
-          ok
-      end,
-      Ret;
+      % Apply AST transformation.
+      write_file(File, MfaSpec, Opts);
     {error, Reason} ->
       erlang:raise(error, Reason, erlang:get_stacktrace())
   end.
 
 
+%%% ----------------------------------------------------------------------------
+%%% Compiler option functions.
+%%% ----------------------------------------------------------------------------
+
+%% @private Returns the filter function option if defined. Defaults to
+%% `fun(_) -> true end' which does not suppress any events.
 filter_opt(Opts) ->
   proplists:get_value(?OPT_FILTER, Opts, fun monitor:filter/1).
+
 
 %%% ----------------------------------------------------------------------------
 %%% Callbacks.
 %%% ----------------------------------------------------------------------------
 
-%% @doc Applies transformations on the abstract syntax to weave in tracing and
+%% @private Applies transformations on the abstract syntax to weave in tracing and
 %% monitor instructions.
 -spec parse_transform(Ast, Opts) -> Ast0 :: [erl_parse:abstract_form()]
   when
@@ -255,6 +228,50 @@ parse_transform(Ast, Opts) ->
 %%% ----------------------------------------------------------------------------
 %%% Private helper functions.
 %%% ----------------------------------------------------------------------------
+
+%% @private Weaves monitor by applying AST transformation and writes the result
+%% to file.
+%%
+%% Written file depends on whether the 'erl' option is set. If 'erl' is set,
+%% file is written as Erlang source code, otherwise object code is written.
+%%
+%% If output directory is specified, it is assumed to exist.
+write_file(File, MfaSpec, Opts) ->
+
+  % Set up default compiler options.
+  CompileOpts = [
+    {i, opts:include_opt(Opts)}, {outdir, opts:out_dir_opt(Opts)}, return,
+    {?OPT_MFA_SPEC, MfaSpec}, {?OPT_FILTER, filter_opt(Opts)},
+    {parse_transform, ?MODULE}, {d, 'WEAVED'}
+  ],
+
+  % Append 'E' flag to compiler to generate source code instead of beam.
+  CompileOpts0 =
+    case opts:erl_opt(Opts) of
+      true -> CompileOpts ++ ['E']; _ -> CompileOpts
+    end,
+
+  % Apply AST transformation, weaving in monitor code.
+  Ret = compile:file(File, CompileOpts0),
+
+  % If 'E' flag was included in compiler options, the resulting weaved file
+  % is output as source code. The 'E' cannot be controlled from compiler
+  % options. We rename the file ourselves to .erl so that the weaver output
+  % is standard.
+  case opts:erl_opt(Opts) of
+    true ->
+      Ext = opts:file_ext(Opts),
+      FileBase = filename:basename(File, Ext),
+      file:rename(
+        filename:join(opts:out_dir_opt(Opts), FileBase ++ ".E"),
+        filename:join(opts:out_dir_opt(Opts), FileBase ++ Ext)
+      );
+    _ ->
+      ok
+  end,
+
+  % Return compiler result.
+  Ret.
 
 %% @private Transforms a list of forms. Only functions are currently handled;
 %% any other form is left as is.
@@ -849,9 +866,9 @@ wrap_fun_call(Line, Fun, Args) ->
   ?TRACE("Fun info: ~p", [erlang:fun_info_mfa(Fun)]),
   ?TRACE("Fun info type: ~p", [erlang:fun_info(Fun, type)]),
 %%  case erlang:fun_info_mfa(Fun) of
-    case erlang:fun_info(Fun, type) of
+  case erlang:fun_info(Fun, type) of
 %%    {erl_eval, _, 1} ->
-      {type, local} ->
+    {type, local} ->
 
       % Fun is specified in anonymous form. Unwrap the abstract syntax of
       % fun body to create full function call. Said function is embedded as is
