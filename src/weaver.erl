@@ -744,13 +744,24 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
     Line, abs_atom(Line, put), [abs_atom(Line, ?MONITOR), MonFunVar]),
   ApplyCall = abs_local_call(Line, abs_atom(Line, apply), SpawnArgsVars),
 
-  % The expression that saves the monitor in the process dictionary, together
-  % with the call to apply are wrapped around a new anonymous function: this is
-  % used to spawn the MFA in the original call to spawn. The Pid is kept to
-  % be used when creating the spawn trace event tuple.
-  WrapFun = abs_fun(Line, [abs_fun_clause(Line, [], [], [PutCall, ApplyCall])]),
-  SpawnCall = abs_local_call(Line, abs_atom(Line, spawn), [WrapFun]),
+  % Create variables to store PID of parent and child processes. PID of parent
+  % process is used to populate the information in the 'init' event for the
+  % child process; PID of child is used to populate the information in the
+  % 'fork' event for the parent process.
   PidVar = create_var(Line, 'Pid', Id),
+  PidParentVar = create_var(Line, 'PidParent', Id),
+
+  % Create 'init' event for child process and submit to monitor.
+  PidParentMatch = abs_match(Line, PidParentVar, create_self(Line)),
+  SubmitCall0 = create_submit(Line, abs_tuple(Line, [
+    abs_atom(Line, init), create_self(Line), PidParentVar, abs_tuple(Line, SpawnArgsVars)
+  ])),
+
+  % Create anonymous function to wrap in the call that saves the monitor into
+  % the process dictionary, the call to submit the 'init' event, and the call
+  % that applies the original MFA to be forked.
+  WrapFun = abs_fun(Line, [abs_fun_clause(Line, [], [], [PutCall, SubmitCall0, ApplyCall])]),
+  SpawnCall = abs_local_call(Line, abs_atom(Line, spawn), [WrapFun]),
   PidMatch = abs_match(Line, PidVar, SpawnCall),
 
 %%  IoFormatCall = abs_remote_call(Line, abs_atom(Line, io), abs_atom(Line, format), [abs_string(Line, "Monitor instrumented for MFA ~w in process ~w.~n"), abs_list(Line, [abs_tuple(Line, SpawnArgsVars), PidVar])]),
@@ -758,26 +769,19 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
 
   %%  Call = abs_remote_call(Line, , [abs_string(Line, "Hello ~p ~p"), abs_list(Line, [abs_atom(Line, test), abs_list(Line, [abs_string(Line, "Duncan"), abs_integer(Line, 36)])])]),
 
-
-  % Create trace event tuple used as arguments to monitor submit call. Event is
-  % submitted to monitor.
+  % Create 'fork' event for parent process and submit to monitor.
   SubmitCall = create_submit(Line, abs_tuple(Line, [
     abs_atom(Line, fork), create_self(Line), PidVar, abs_tuple(Line, SpawnArgsVars)
   ])),
 
-  % Create case expression used to determine whether a monitor is to be created.
-  % If monitor does not need to be created, the original call to spawn in the
-  % source AST is embedded as is; otherwise the MFA in the original call to
-  % spawn is wrapped around a host function that includes all the bootstrap
-  % monitoring code, and this is spawned instead (as explained above).
-%%  Case = abs_case(Line, MfaSpecCall, [
-%%    abs_case_clause(Line, [abs_atom(Line, undefined)], [], [IoFormatCall2, abs_remote_call(Line, ModSpawn, FunSpawn, SpawnArgsVars)]),
-%%    abs_case_clause(Line, [abs_tuple(Line, [abs_atom(Line, ok), MonFunVar])], [], [PidMatch, IoFormatCall, SubmitCall])
-%%  ]),
-
+  % Create case used to determine whether the monitor needs to be created. If
+  % monitor does not need to be created, the original call to spawn from the
+  % source AST is embedded as is; otherwise MFA in said original call to spawn
+  % is wrapped around the host anonymous fun that includes all the bootstrapping
+  % monitor code together with the 'init' event.
   Case = abs_case(Line, MfaSpecCall, [
     abs_case_clause(Line, [abs_atom(Line, undefined)], [], [abs_remote_call(Line, ModSpawn, FunSpawn, SpawnArgsVars)]),
-    abs_case_clause(Line, [abs_tuple(Line, [abs_atom(Line, ok), MonFunVar])], [], [PidMatch, SubmitCall])
+    abs_case_clause(Line, [abs_tuple(Line, [abs_atom(Line, ok), MonFunVar])], [], [PidParentMatch, PidMatch, SubmitCall])
   ]),
 
   {Id0, Case}.

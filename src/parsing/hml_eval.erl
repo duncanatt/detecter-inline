@@ -108,11 +108,12 @@
 -type af_mfa() :: {mfa, line(), module(), atom(), arity(), erl_parse:abstract_clause()}.
 
 -type af_fork_act() :: {fork, line(), af_var(), af_var(), af_mfa()}.
+-type af_init_act() :: {init, line(), af_var(), af_var(), af_mfa()}.
 -type af_exit_act() :: {exit, line(), af_var(), erl_parse:abstract_clause()}.
 -type af_send_act() :: {send, line(), af_var(), erl_parse:abstract_clause()}.
 -type af_recv_act() :: {recv, line(), af_var(), erl_parse:abstract_clause()}.
 -type af_user_act() :: {user, line(), erl_parse:abstract_clause()}.
--type af_act() :: af_fork_act() | af_exit_act() | af_send_act() | af_recv_act() | af_user_act().
+-type af_act() :: af_fork_act() | af_init_act() | af_exit_act() | af_send_act() | af_recv_act() | af_user_act().
 
 
 %%% ----------------------------------------------------------------------------
@@ -192,10 +193,26 @@
 %% '''
 %%       An action in a necessity `[<ACTION>]' can be one of the following:
 %%       {@ul
-%%         {@item A `fork' action, specified as `<VAR_0> -> <VAR_1>, <MFA>';}
-%%         {@item A process `exit' action, specified as `<VAR> ** <CLAUSE>';}
-%%         {@item A process `send' action, specified as `<VAR> ! <CLAUSE>';}
-%%         {@item A process `receive' action, specified as `<VAR> ? <CLAUSE>';}
+%%         {@item A `fork' action, specified as `<VAR_0> -> <VAR_1>, <MFA>',
+%%                meaning that the parent process `<VAR_0>' forked child
+%%                `<VAR_1>';
+%%         }
+%%         {@item A `init' action, specified as `<VAR_0> <- <VAR_1>, <MFA>',
+%%                meaning that the child process `<VAR_0>' was started by
+%%                parent `<VAR_1>';
+%%         }
+%%         {@item A process `exit' action, specified as `<VAR> ** <CLAUSE>',
+%%                meaning that the process `<VAR>' terminated with reason
+%%                `<CLAUSE>';
+%%         }
+%%         {@item A process `send' action, specified as `<VAR> ! <CLAUSE>',
+%%                meaning that the sending process `<VAR>' send message
+%%                `<CLAUSE>';
+%%         }
+%%         {@item A process `receive' action, specified as `<VAR> ? <CLAUSE>',
+%%                meaning that the receiving process `<VAR>' received message
+%%                `<CLAUSE>';
+%%         }
 %%         {@item A generic user-given action, specified as `<CLAUSE>'.}
 %%       }
 %%       where `<VAR>', `<VAR_0>' and `<VAR_1>' are standard Erlang variables,
@@ -608,7 +625,18 @@ visit_act({fork, _, Var0, Var1, {mfa, _, Mod, Fun, _, Clause}}) ->
   Mfa = erl_syntax:tuple([erl_syntax:atom(Mod), erl_syntax:atom(Fun),
     erl_syntax:list(Patterns)]),
   Pattern = erl_syntax:tuple([erl_syntax:atom(trace), Var0,
-    erl_syntax:atom('spawn'), Mfa, Var1
+    erl_syntax:atom('spawn'), Var1, Mfa
+  ]),
+  {[Pattern], Guard};
+
+visit_act({init, _, Var0, Var1, {mfa, _, Mod, Fun, _, Clause}}) ->
+  Patterns = erl_syntax:clause_patterns(Clause),
+  Guard = erl_syntax:clause_guard(Clause),
+
+  Mfa = erl_syntax:tuple([erl_syntax:atom(Mod), erl_syntax:atom(Fun),
+    erl_syntax:list(Patterns)]),
+  Pattern = erl_syntax:tuple([erl_syntax:atom(trace), Var0,
+    erl_syntax:atom('spawned'), Var1, Mfa
   ]),
   {[Pattern], Guard};
 

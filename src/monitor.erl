@@ -66,6 +66,7 @@
 
 -type event() ::
 {fork, Parent :: pid(), Child :: pid(), Mfa :: mfa()} |
+{init, Child :: pid(), Parent :: pid(), Mfa :: mfa()} |
 {exit, Process :: pid(), Reason :: term()} |
 {send, Sender :: pid(), Receiver :: pid(), Message :: term()} |
 {recv, Receiver :: pid(), Message :: term()}.
@@ -74,6 +75,7 @@
 
 -type evm_event() ::
 {trace, PidSrc :: pid(), spawn, PidTgt :: pid(), Mfa :: mfa()} |
+{trace, PidSrc :: pid(), spawned, PidTgt :: pid(), Mfa :: mfa()} |
 {trace, PidSrc :: pid(), exit, Reason :: term()} |
 {trace, PidSrc :: pid(), send, Msg :: term(), PidTgt :: pid()} |
 {trace, PidSrc :: pid(), 'receive', Msg :: term()}.
@@ -107,6 +109,11 @@ submit(Event = {fork, _Parent, Child, _Mfa}) ->
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Child;
+submit(Event = {init, _Child, Parent, _Mfa}) ->
+  do_monitor(to_evm_event(Event),
+    fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
+  ),
+  Parent;
 submit(Event = {exit, _Process, Reason}) ->
   do_monitor(to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
@@ -199,6 +206,8 @@ analyze(Monitor, Event) ->
 -spec to_evm_event(Event :: event()) -> Event0 :: evm_event().
 to_evm_event({fork, Parent, Child, Mfa}) ->
   {trace, Parent, spawn, Child, Mfa};
+to_evm_event({init, Child, Parent, Mfa}) ->
+  {trace, Child, spawned, Parent, Mfa};
 to_evm_event({exit, Process, Reason}) ->
   {trace, Process, exit, Reason};
 to_evm_event({send, Sender, Receiver, Msg}) ->

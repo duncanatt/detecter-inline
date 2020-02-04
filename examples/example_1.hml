@@ -26,17 +26,19 @@
 with
   server:loop(_)
 monitor
-  max(X.
-    and(
-      [_Server ? {_, _, {add, A, B}}] and(
-        [_Server ! {_, {add, AB}} when AB =/= A + B]ff,
-        [_Server ! {_, {add, AB}} when AB =:= A + B]X
+  and([_Launcher <- _Server, server:loop(_)]
+    max(X.
+      and(
+        [_Server ? {_, _, {add, A, B}}] and(
+          [_Server ! {_, {add, AB}} when AB =/= A + B]ff,
+          [_Server ! {_, {add, AB}} when AB =:= A + B]X
+          ),
+        [_Server ? {_, _, {_, _, _}}] and(
+          [_Server ! {_, {_, _}}]X
         ),
-      [_Server ? {_, _, {_, _, _}}] and(
-        [_Server ! {_, {_, _}}]X
-      ),
-      [_Server ? {_, _, stop}] and(
-        [_Server ! {_, {ok, stopped}}]X
+        [_Server ? {_, _, stop}] and(
+          [_Server ! {_, {ok, stopped}}]X
+        )
       )
     )
   ).

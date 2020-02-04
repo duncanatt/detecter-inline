@@ -265,8 +265,11 @@ act -> var '?' clause                         : {recv, ?anno('$1'), '$1', '$3'}.
 % Process in var terminated with reason.
 act -> var '**' clause                        : {exit, ?anno('$1'), '$1', '$3'}.
 
-% Process in var1 was forked by process in var0 on MFA.
+% Process in var0 forked process in var1 on MFA.
 act -> var '->' var ',' mfa                   : {fork, ?anno('$1'), '$1', '$3', '$5'}.
+
+% Process in var1 was forked by process in var0 on MFA.
+act -> var '<-' var ',' mfa                   : {init, ?anno('$1'), '$3', '$1', '$5'}.
 
 % Custom defined actions that are not just limited to '!', '?' '**' and '->'.
 act -> clause                                 : {user, ?anno('$1'), '$1'}.
