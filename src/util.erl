@@ -87,6 +87,8 @@ rpc(To, Req) when is_pid(To); is_atom(To) ->
   receive
     {Ref, Resp} ->
       Resp
+  after 2000 ->
+    {error, timeout}
   end.
 
 %%% ----------------------------------------------------------------------------
