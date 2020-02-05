@@ -49,7 +49,7 @@
 -define(EXT_REGEX, "^.*\\.erl$").
 
 -define(TRACE_MOD, monitor).
--define(TRACE_FUN, submit).
+-define(TRACE_FUN, dispatch).
 
 -define(OPT_MFA_SPEC, mfa_spec).
 -define(OPT_FILTER, filter).
@@ -625,9 +625,9 @@ weave_receive_clause({clause, Line, [Pattern], Guards, Body}, MfaSpec, FilterSpe
   Var = create_var(Line, 'Msg', Id0),
   Match = abs_match(Line, Var, Pattern),
 
-  % Create trace event tuple used as arguments to monitor submit call. Event is
-  % submitted to monitor.
-  SubmitCall = create_submit(Line, abs_tuple(Line, [
+  % Create trace event tuple used as arguments to monitor dispatch call. Event
+  % is zdispatched to monitor.
+  SubmitCall = create_dispatch(Line, abs_tuple(Line, [
     abs_atom(Line, recv), create_self(Line), Var
   ])),
 
@@ -661,9 +661,9 @@ weave_send_expr({op, Line, Op = '!', Expr1, Expr2}, MfaSpec, FilterSpec, Id) ->
   % AST.
   SendExpr0 = {op, Line, Op, Match1, Match2},
 
-  % Create trace event tuple used as arguments to monitor submit call. Event is
-  % submitted to monitor.
-  SubmitCall = create_submit(Line, abs_tuple(Line, [
+  % Create trace event tuple used as arguments to monitor dispatch call. Event
+  % is dispatched to monitor.
+  SubmitCall = create_dispatch(Line, abs_tuple(Line, [
     abs_atom(Line, send), create_self(Line), Var1, Var2])),
 
   % Create call expression to filter trace event and corresponding case
@@ -699,7 +699,7 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
   % the spawn arguments can themselves be values that could be possibly obtained
   % via send or receive expressions, their value must be stored in variables.
   % Subsequent use of these values can be then made elsewhere, such as when the
-  % spawn trace event is submitted to the monitor. Saving the values the spawn
+  % spawn trace event is dispatched to the monitor. Saving the values the spawn
   % arguments evaluates to ensures that any side effects are performed precisely
   % once.
   [Mod, Fun, Args] = SpawnArgs,
@@ -751,14 +751,14 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
   PidVar = create_var(Line, 'Pid', Id),
   PidParentVar = create_var(Line, 'PidParent', Id),
 
-  % Create 'init' event for child process and submit to monitor.
+  % Create 'init' event for child process and dispatch to monitor.
   PidParentMatch = abs_match(Line, PidParentVar, create_self(Line)),
-  SubmitCall0 = create_submit(Line, abs_tuple(Line, [
+  SubmitCall0 = create_dispatch(Line, abs_tuple(Line, [
     abs_atom(Line, init), create_self(Line), PidParentVar, abs_tuple(Line, SpawnArgsVars)
   ])),
 
   % Create anonymous function to wrap in the call that saves the monitor into
-  % the process dictionary, the call to submit the 'init' event, and the call
+  % the process dictionary, the call to dispatch the 'init' event, and the call
   % that applies the original MFA to be forked.
   WrapFun = abs_fun(Line, [abs_fun_clause(Line, [], [], [PutCall, SubmitCall0, ApplyCall])]),
   SpawnCall = abs_local_call(Line, abs_atom(Line, spawn), [WrapFun]),
@@ -769,8 +769,8 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
 
   %%  Call = abs_remote_call(Line, , [abs_string(Line, "Hello ~p ~p"), abs_list(Line, [abs_atom(Line, test), abs_list(Line, [abs_string(Line, "Duncan"), abs_integer(Line, 36)])])]),
 
-  % Create 'fork' event for parent process and submit to monitor.
-  SubmitCall = create_submit(Line, abs_tuple(Line, [
+  % Create 'fork' event for parent process and dispatch to monitor.
+  SubmitCall = create_dispatch(Line, abs_tuple(Line, [
     abs_atom(Line, fork), create_self(Line), PidVar, abs_tuple(Line, SpawnArgsVars)
   ])),
 
@@ -860,9 +860,9 @@ create_var(Line, Name, Id) ->
   abs_var(Line,
     list_to_atom(lists:flatten(io_lib:format("_~s@~b", [Name, Id])))).
 
-%% @private Returns the abstract syntax for a submit call to the monitor
-%% parametrised by the specified event.
-create_submit(Line, Event) ->
+%% @private Returns the abstract syntax for a dispatching an event to the
+%% monitor.
+create_dispatch(Line, Event) ->
   abs_remote_call(Line, abs_atom(Line, ?TRACE_MOD), abs_atom(Line, ?TRACE_FUN),
     [Event]).
 

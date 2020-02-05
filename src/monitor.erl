@@ -32,7 +32,7 @@
 -include("log.hrl").
 
 %%% Public API exports.
--export([submit/1, filter/1]).
+-export([dispatch/1, filter/1]).
 
 %%% Type exports.
 -export_type([monitor/0, mfa_spec/0]).
@@ -69,7 +69,7 @@
 %%% Public API.
 %%% ----------------------------------------------------------------------------
 
-%% @doc Submits the specified abstract event to the monitor for analysis.
+%% @doc Dispatches the specified abstract event to the monitor for analysis.
 %%
 %% {@params
 %%   {@name Event}
@@ -89,28 +89,28 @@
 %%             {@item When event is of type `recv', the message is returned.}
 %%           }
 %% }
--spec submit(Event :: events:event()) -> term().
-submit(Event = {fork, _Parent, Child, _Mfa}) ->
+-spec dispatch(Event :: events:event()) -> term().
+dispatch(Event = {fork, _Parent, Child, _Mfa}) ->
   do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Child;
-submit(Event = {init, _Child, Parent, _Mfa}) ->
+dispatch(Event = {init, _Child, Parent, _Mfa}) ->
   do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Parent;
-submit(Event = {exit, _Process, Reason}) ->
+dispatch(Event = {exit, _Process, Reason}) ->
   do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Reason;
-submit(Event = {send, _Sender, _Receiver, Msg}) ->
+dispatch(Event = {send, _Sender, _Receiver, Msg}) ->
   do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Msg;
-submit(Event = {recv, _Receiver, Msg}) ->
+dispatch(Event = {recv, _Receiver, Msg}) ->
   do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
