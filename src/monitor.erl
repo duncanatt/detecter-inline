@@ -64,23 +64,6 @@
 %% Function that specifies which remote (<i>i.e.,</i> external) function calls
 %% are to be monitored.
 
--type event() ::
-{fork, Parent :: pid(), Child :: pid(), Mfa :: mfa()} |
-{init, Child :: pid(), Parent :: pid(), Mfa :: mfa()} |
-{exit, Process :: pid(), Reason :: term()} |
-{send, Sender :: pid(), Receiver :: pid(), Message :: term()} |
-{recv, Receiver :: pid(), Message :: term()}.
-%% Abstract trace event that is not linked to a specific tracer implementation.
-%% See {@link evm_event/0} for trace events specific to the EVM.
-
--type evm_event() ::
-{trace, PidSrc :: pid(), spawn, PidTgt :: pid(), Mfa :: mfa()} |
-{trace, PidSrc :: pid(), spawned, PidTgt :: pid(), Mfa :: mfa()} |
-{trace, PidSrc :: pid(), exit, Reason :: term()} |
-{trace, PidSrc :: pid(), send, Msg :: term(), PidTgt :: pid()} |
-{trace, PidSrc :: pid(), 'receive', Msg :: term()}.
-%% Trace event encoded as a trace message that is issued by the EVM built-in
-%% tracing mechanism (see {@link erlang:trace/3} for more information).
 
 %%% ----------------------------------------------------------------------------
 %%% Public API.
@@ -98,37 +81,41 @@
 %%             {@item When event is of type `fork', the PID of the new child
 %%                    process is returned;
 %%             }
+%%             {@item When event is of type `init', the PID of the parent
+%%                    process is returned;
+%%             }
 %%             {@item When event is of type `exit', the exit reason is returned;}
 %%             {@item When event is of type `send', the message is returned;}
 %%             {@item When event is of type `recv', the message is returned.}
 %%           }
 %% }
--spec submit(Event :: trace_lib:event()) -> term().
+-spec submit(Event :: events:event()) -> term().
 submit(Event = {fork, _Parent, Child, _Mfa}) ->
-  do_monitor(to_evm_event(Event),
+  do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Child;
 submit(Event = {init, _Child, Parent, _Mfa}) ->
-  do_monitor(to_evm_event(Event),
+  do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Parent;
 submit(Event = {exit, _Process, Reason}) ->
-  do_monitor(to_evm_event(Event),
+  do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Reason;
 submit(Event = {send, _Sender, _Receiver, Msg}) ->
-  do_monitor(to_evm_event(Event),
+  do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Msg;
 submit(Event = {recv, _Receiver, Msg}) ->
-  do_monitor(to_evm_event(Event),
+  do_monitor(events:to_evm_event(Event),
     fun(Verdict) -> ?INFO("Reached verdict '~s' after ~w.", [Verdict, Event]) end
   ),
   Msg.
+
 
 %%% ----------------------------------------------------------------------------
 %%% Private helper functions.
@@ -195,27 +182,7 @@ analyze(Monitor, Event) ->
       Monitor(Event)
   end.
 
-%% @doc Translates the log event to one that is identical to what the EVM
-%% generates.
-%% {@params
-%%   {@name Event}
-%%   {@desc The event to translate to EVM format.}
-%% }
-%%
-%% {@returns The translated event.}
--spec to_evm_event(Event :: event()) -> Event0 :: evm_event().
-to_evm_event({fork, Parent, Child, Mfa}) ->
-  {trace, Parent, spawn, Child, Mfa};
-to_evm_event({init, Child, Parent, Mfa}) ->
-  {trace, Child, spawned, Parent, Mfa};
-to_evm_event({exit, Process, Reason}) ->
-  {trace, Process, exit, Reason};
-to_evm_event({send, Sender, Receiver, Msg}) ->
-  {trace, Sender, send, Msg, Receiver};
-to_evm_event({recv, Receiver, Msg}) ->
-  {trace, Receiver, 'receive', Msg}.
-
 %% @doc Default filter that allows all events to pass.
--spec filter(_) -> true.
+-spec filter(Event :: events:event()) -> true.
 filter(_) ->
-  true. % True = keep.
+  true. % True = keep event.
