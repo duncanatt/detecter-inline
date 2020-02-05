@@ -71,7 +71,8 @@
 %%% Type declarations.
 %%% ----------------------------------------------------------------------------
 
--type option() :: {outdir, directory()} | erl | v.
+%%-type option() :: {outdir, directory()} | erl | v.
+-type option() :: opts:option().
 %% Compiler options.
 
 -type options() :: [option()].
@@ -274,7 +275,7 @@ compile(File, Opts) when is_list(Opts) ->
 
       % Before synthesizing monitor as Erlang source or beam code, make ensure
       % the output directory exists.
-      case filelib:ensure_dir(util:as_dir_name(out_dir_opt(Opts))) of
+      case filelib:ensure_dir(util:as_dir_name(opts:out_dir_opt(Opts))) of
         ok ->
 
           % Extract base name of source script file to create module name. This
@@ -361,13 +362,13 @@ parse_file(File) when is_list(File) ->
 -spec compile_opts(Opts :: options()) -> CompileOpts :: [compile:option()].
 compile_opts(Opts) ->
 %%  [{i, include_opt(Opts)}, {i, out_dir_opt(Opts)} | ?COMPILER_OPTS].
-    [{i, out_dir_opt(Opts)} | ?COMPILER_OPTS].
+    [{i, opts:out_dir_opt(Opts)} | ?COMPILER_OPTS].
 
-%% @private Returns the compiler output directory option if defined. Defaults to
+%% @privat Returns the compiler output directory option if defined. Defaults to
 %% '.'.
--spec out_dir_opt(Opts :: options()) -> Dir :: string().
-out_dir_opt(Opts) ->
-  proplists:get_value(?OPT_OUT_DIR, Opts, ".").
+%%-spec out_dir_opt(Opts :: options()) -> Dir :: string().
+%%out_dir_opt(Opts) ->
+%%  proplists:get_value(?OPT_OUT_DIR, Opts, ".").
 
 %% private Returns the compiler include directory option if defined. Defaults
 %% to '.'.
@@ -375,18 +376,18 @@ out_dir_opt(Opts) ->
 %%include_opt(Opts) ->
 %%  proplists:get_value(?OPT_INCLUDE, Opts, ".").
 
-%% @private Returns the compiler switch that determines whether Erlang source
+%% @privat Returns the compiler switch that determines whether Erlang source
 %% code is output instead of beam. Defaults to 'false'.
--spec erl_opt(Opts :: options()) -> Flag :: boolean().
-erl_opt(Opts) ->
-  proplists:get_value(?OPT_ERL, Opts, false).
+%%-spec erl_opt(Opts :: options()) -> Flag :: boolean().
+%%erl_opt(Opts) ->
+%%  proplists:get_value(?OPT_ERL, Opts, false).
 
-%% @private Returns the compiler switch that determines whether the resulting
+%% @privat Returns the compiler switch that determines whether the resulting
 %% monitor includes logging statements for debugging purposes. Defaults to
 %% 'false'.
--spec verbose_opt(Opts :: options()) -> Flag :: boolean().
-verbose_opt(Opts) ->
-  proplists:get_value(?OPT_VERBOSE, Opts, false).
+%%-spec verbose_opt(Opts :: options()) -> Flag :: boolean().
+%%verbose_opt(Opts) ->
+%%  proplists:get_value(?OPT_VERBOSE, Opts, false).
 
 
 %%% ----------------------------------------------------------------------------
@@ -435,7 +436,7 @@ visit_forms([], Opts) ->
   % Generate catchall function clause pattern that matches Mod:Fun(Args) pattern
   % to return undefined. This is the case when no monitor should be attached to
   % said MFA.
-  case verbose_opt(Opts) of
+  case opts:verbose_opt(Opts) of
     true ->
 
       % Create verbose function clause body to include logging information.
@@ -490,7 +491,7 @@ visit_shml(_Node = {ff, _}, Opts) ->
 
   % Create atom 'no' denoting the rejection monitoring verdict. This corresponds
   % to the SHMLnf violation verdict 'ff'.
-  case verbose_opt(Opts) of
+  case opts:verbose_opt(Opts) of
     true ->
       Log = create_log("Reached verdict 'no'.~n", [], no),
       erl_syntax:block_expr([Log | [erl_syntax:atom(no)]]);
@@ -504,7 +505,7 @@ visit_shml(Var = {var, _, Name}, Opts) ->
   % Create function application denoting the recursive call the monitor performs
   % when it reaches the recursive variable. This corresponds to the SHMLns
   % recursion variable.
-  case verbose_opt(Opts) of
+  case opts:verbose_opt(Opts) of
     true ->
       Log = create_log("Unfolding rec. var. ~p.~n",
         [erl_syntax:atom(Name)], var),
@@ -538,7 +539,7 @@ visit_shml(_Node = {'and', _, _, ShmlSeq}, Opts) when is_list(ShmlSeq) ->
   % default. The body of this function returns 'end', denoting the monitor
   % inconclusive verdict.
   CatchAllClause =
-    case verbose_opt(Opts) of
+    case opts:verbose_opt(Opts) of
       true ->
 
         % Create verbose function clause body to include logging information.
@@ -599,7 +600,7 @@ visit_nec(_Node = {nec, _, Act, Shml}, Opts) ->
   % allows refined matching to be performed dynamically whilst the function
   % clause is being evaluated at runtime. The pattern and guard constructs
   % correspond to the SHMLns modal necessity.
-  case verbose_opt(Opts) of
+  case opts:verbose_opt(Opts) of
     true ->
 
       % Create verbose function clause body to include logging information.
@@ -718,18 +719,18 @@ write_monitor(Ast, File, Opts) ->
 
   % Create base filename, taking into account the output directory specified in
   % the compiler options.
-  FileBase = filename:join([out_dir_opt(Opts), filename:basename(File, ?EXT_HML)]),
+  FileBase = filename:join([opts:out_dir_opt(Opts), filename:basename(File, ?EXT_HML)]),
 
   % Open file for writing and write Erlang source or beam code depending on
   % the specified compiler options.
   % Open file for writing. File extension depends on specified compiler options.
   {ok, IoDev} = file:open(FileBase ++
-  case erl_opt(Opts) of true -> ?EXT_ERL; _ -> ?EXT_BEAM end, [write]
+  case opts:erl_opt(Opts) of true -> ?EXT_ERL; _ -> ?EXT_BEAM end, [write]
   ),
 
   % Write monitor Erlang or beam source code depending on specified compiler
   % options.
-  case erl_opt(Opts) of
+  case opts:erl_opt(Opts) of
     true ->
       write_erl(IoDev, Ast, File, compile_opts(Opts));
     _ ->

@@ -54,6 +54,7 @@
 
 -define(REG_STATS_NAME, stats).
 
+%% Keeps running statistics for running weighted mean, variance, etc.
 -record(w_stats_ctx, {
   w_sum = 0 :: float(),
   w_sum_sq = 0 :: float(),
@@ -61,9 +62,12 @@
   s = 0 :: float()
 }).
 
+
 %%% ----------------------------------------------------------------------------
 %%% Type declarations.
 %%% ----------------------------------------------------------------------------
+
+-type w_stats_ctx() :: #w_stats_ctx{}.
 
 
 %%% ----------------------------------------------------------------------------
@@ -72,9 +76,6 @@
 start(Total) ->
   register(?MODULE, Pid = spawn(?MODULE, loop, [1, Total, new_w_run_stats()])),
   Pid.
-
-
-
 
 mfa_spec({server, loop, _}) ->
   {ok,
@@ -88,14 +89,7 @@ mfa_spec({server, loop, _}) ->
           ?TRACE("Received 'add' event."),
 
           Idle = log_event(),
-
-%%          Now = timestamp(),
-%%          put(?KEY_TOTAL_IDLE, get(?KEY_TOTAL_IDLE) + Now - get(?KEY_LAST_UPDATE)),
-
           ?TRACE("Time idle: ~b.", [Idle]),
-%%          put(?KEY_LAST_UPDATE, Now),
-%%          put(?KEY_EVENT_CNT, get(?KEY_EVENT_CNT) + 1),
-
 
           fun({trace, _Server, send, {_, {add, AB}}, _}) ->
 
@@ -106,10 +100,6 @@ mfa_spec({server, loop, _}) ->
           end;
           ({trace, _Server, 'receive', {_, _, {mul, A, B}}}) ->
             ?TRACE("Received 'mul' event."),
-%%            Now = timestamp(),
-%%            put(?KEY_TOTAL_IDLE, get(?KEY_TOTAL_IDLE) + Now - get(?KEY_LAST_UPDATE)),
-%%            put(?KEY_LAST_UPDATE, Now),
-%%            put(?KEY_EVENT_CNT, get(?KEY_EVENT_CNT) + 1),
 
             Idle = log_event(),
             ?TRACE("Time idle: ~b.", [Idle]),
@@ -137,8 +127,14 @@ mfa_spec({server, loop, _}) ->
             ?TRACE("Mean idle time: ~.2fms", [Mean]),
 
 
-            ?MODULE !
-              {stats, self(), get(?KEY_EVENT_CNT), get(?KEY_TOTAL_IDLE)},
+            case catch ?MODULE !
+              {stats, self(), get(?KEY_EVENT_CNT), get(?KEY_TOTAL_IDLE)} of
+              {'EXIT', _} ->
+                ?WARN("Profiler not alive!");
+              _ ->
+                ok
+            end,
+
 
             % Return the result to main collector monitor.
             'end';
@@ -174,12 +170,15 @@ loop(Count, Total, WStatsCtx = #w_stats_ctx{}) ->
       io:format("WARN: Receive unknown message ~p.~n", [Any])
   end.
 
-
-
-
+-spec new_w_run_stats() -> w_stats_ctx().
 new_w_run_stats() ->
   #w_stats_ctx{w_sum = 0.0, w_sum_sq = 0.0, mean = 0.0, s = 0.0}.
 
+-spec w_run_stats(Ctx, Weight, Sample) -> w_stats_ctx()
+  when
+  Ctx :: w_stats_ctx(),
+  Weight :: float(),
+  Sample :: float().
 w_run_stats(#w_stats_ctx{w_sum = WSum, w_sum_sq = WSumSq, mean = Mean, s = S},
     Weight, Sample) ->
   WSum0 = WSum + Weight,
@@ -188,6 +187,7 @@ w_run_stats(#w_stats_ctx{w_sum = WSum, w_sum_sq = WSumSq, mean = Mean, s = S},
   S0 = S + Weight * (Sample - Mean) * (Sample - Mean0),
   #w_stats_ctx{w_sum = WSum0, w_sum_sq = WSumSq0, mean = Mean0, s = S0}.
 
+-spec w_run_mean(Ctx :: w_stats_ctx()) -> float().
 w_run_mean(#w_stats_ctx{mean = Mean}) ->
   Mean.
 
@@ -196,11 +196,14 @@ w_run_mean(#w_stats_ctx{mean = Mean}) ->
 %%% Private helper functions.
 %%% ----------------------------------------------------------------------------
 
-%% @doc Returns the current operating system time in milliseconds.
+%% @private Returns the current operating system time in milliseconds.
 -spec timestamp() -> pos_integer().
 timestamp() ->
   os:system_time(millisecond).
 
+%% @private Logs the event and calculations in the process dictionary and
+%% returns the last idle time.
+-spec log_event() -> float().
 log_event() ->
   Now = timestamp(),
   Idle = Now - get(?KEY_LAST_UPDATE),

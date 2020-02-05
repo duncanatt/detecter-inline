@@ -31,7 +31,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 %%% Public API exports.
--export([file_ext/1, compile_opts/1]).
+-export([file_ext/1]).
 -export([out_dir_opt/1, include_opt/1, erl_opt/1, verbose_opt/1]).
 
 %%% Internal exports.
@@ -88,9 +88,9 @@ file_ext(Opts) ->
 
 %% @doc Configures the Erlang compiler options used to generate the beam
 %% code file.
--spec compile_opts(Opts :: options()) -> CompileOpts :: [compile:option()].
-compile_opts(Opts) ->
-  [{i, out_dir_opt(Opts)} | ?COMPILER_OPTS].
+%%-spec compile_opts(Opts :: options()) -> CompileOpts :: [compile:option()].
+%%compile_opts(Opts) ->
+%%  [{i, out_dir_opt(Opts)} | ?COMPILER_OPTS].
 
 %% @doc Returns the compiler output directory option if defined. Defaults to
 %% '.'.
