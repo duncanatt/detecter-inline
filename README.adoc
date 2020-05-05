@@ -5,6 +5,7 @@ v0.9, 04-05-2020 // Star Wars Day ^_^
 
 :stem: latexmath
 :icons: font
+:source-highlighter: highlightjs
 :toc:
 :toc-placement!:
 //:sectnums:
@@ -41,7 +42,7 @@ toc::[]
 
 == Overview
 
-Correctness properties in `detectEr` are scripted in plain text format using SHML__nf__ syntax.
+Correctness properties in `detectEr` are scripted in plain text format using SHML~nf~ syntax.
 //
 These are then parsed, and the corresponding executable runtime monitor is synthesised in its source or binary form.
 //
@@ -66,7 +67,7 @@ The function `test` in module `example` takes two parameters, `A` and `B`, where
 //
 A property specification that targets the function `test` is specified as follows:
 
-[subs=+quotes]
+[subs="quotes"]
 ----
 *with*
   example:test(A, B) when A >= 0, A =< 10
@@ -75,29 +76,30 @@ A property specification that targets the function `test` is specified as follow
 ----
 ====
 
-The property itself, `<property in SHMLnf>`, is written using the grammar defined next.
+The property itself, `_property in SHMLnf_`, is written using the grammar defined next.
 
 
-=== The SHML__nf__ grammar
+=== The SHML~nf~ grammar
 
-The SHML__nf__ grammar is defined by the following BNF:
+The SHML~nf~ grammar is defined by the following BNF:
 
+[subs="quotes"]
 ----
-<SHMLnf> ::= ff (falsity, an atom)  <1>
-          | X  <2>
-          | max(X. <SHMLnf>)  <3>
-          | and(<SHMLnf list>).  <4>
+<SHML~nf~> ::= *ff*  <1>
+          | _X_  <2>
+          | max(_X_. <SHML~nf~>)  <3>
+          | and(<SHML~nf~ list>).  <4>
 ----
 <1> Falsity, an atom
 <2> Recursion variable specified as a standard Erlang variable
-<3> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHMLnf>`
-<4> A sequence of comma-separated conjuncts where each conjunct is a sub-formula `<SHMLnf>` that starts with a necessity `[<ACTION>]<SHMLnf>`
+<3> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHML~nf~>`
+<4> A sequence of comma-separated *conjuncts* where each conjunct is a sub-formula `<SHML~nf~>` that starts with a necessity `[<ACTION>]<SHML~nf~>`
 
-A necessity, specified by `[]` contains the `<ACTION>` that should be matched with the trace event exhibited by the system.
+A necessity, specified by `[]` contains the `<ACTION>` that is matched with the trace event exhibited by the system.
 //
 Matching is performed both on the type of action as well as the data it carries in relation to the trace event.
 //
-There are five types of actions:
+There are five actions types:
 //
 [horizontal]
 Fork:: Process creation action, specified as `PID~p~ -> PID~c~, M:F(A)`. This action is exhibited by the parent process invoking fork.
@@ -117,37 +119,154 @@ where `PID` is a generic Erlang variable that binds to a process ID (PID).
 //
 Actions inside the necessity construct `[]` may optionally include guards, albeit with the restrictions mentioned above.
 
-The following are some examples of scripted HML__nf__ properties.
+The following are some examples of scripted HML~nf~ properties.
 
+.{zwsp}
 ====
 This property checks that the parent process does not fork child processes with negative IDs.
 //
-The property reads as: "the parent process `P` cannot fork a child process `C` using the function child:init(Id, StartCnt) such that the `Id` assigned is negative"
+The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` such that the `Id` assigned is negative".
 
-[subs=+quotes]
+[subs="quotes"]
 ----
 *with*
   parent:start()
 *monitor*
-    and([P -> C, child:init([Id, _]) when Id < 0]ff)
+    and([P -> C, child:init([Id, _]) when Id < 0] *ff*).
 ----
+//
+The falsity `*ff*` states that when the necessity `[P -> C, child:init([Id, pass:[_]]) when Id < 0]` matches such a fork event, a _violation_ is flagged.
+//
+We use the Erlang anonymous variable `_` to bind `StartCnt` since this value is unimportant.
+====
+
+
+.{zwsp}
+====
+This property checks that the parent process does not fork a child process and terminates immediately after with the reason `aborted`.
+//
+The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` and terminate immediately with the reason `aborted` ".
+
+[subs="quotes,macros"]
+----
+*with*
+  parent:start()
+*monitor*
+  and([P -> C, child:init([_, _])] and([P pass:[**] aborted] *ff*)).
+----
+//
+The outer `and(...)` construct consists of a *single necessity* that binds the action `P -> C, child:init([pass:[_], pass:[_]])` to the fork event exhibited by `P`.
+//
+Similarly, the inner `and(...)` binds the only necessity `[P ** aborted]` to the termination event exhibited by `P`.
+//
+We remark that, following the SHML~nf~ grammar given above, nesting `and` constructs, _i.e._, `and([...] and([...], ...))`, enables us to encode necessity _sequences_.
+====
+
+
+== Sample System
+
+
+We include a source code sample that models a simple client-server interaction.
+//
+This sample can be found under the `/src/system` directory.
+//
+The server (`server.erl`) exposes two functions, start and stop, that are used to launch and terminate the server process.
+//
+It also implements three operations described below:
+//
+[cols=3*,options=header]
+|===
+|Operation |Request |Description
+|stop | `{From, Ref, stop}` | Server stop request
+|add | `{From, Ref, {add, A, B}}` | Addition request
+|multiply | `{From, Ref, {mul, A, B}}` | Multiplication request
+|===
+//
+The variables `From` and `Ref` bind to the PID of the sender process and reference respectively; `A` and `B` bind to the numbers that are operated upon.
+//
+`Ref` is used for internal implementation purposes, and is unimportant in what follows.
+//
+The function `stop/1` exposed by the `server` module sends a `stop` request to the server process to terminate it.
+//
+Our server is started and stopped as follows:
+
+[source,erlang]
+----
+server:start(ok).
+server:stop().
+----
+
+
+
+
+
+
+
+//
+The client (`client.erl`) exposes two remote invocation stubs that correspond to the operations add and multiply from the `server` module.
+
+
+
+
+
+
+
+.{zwsp}
+====
 
 
 ====
 
 
 
-% Parent process P cannot fork a child process C via @{M,F,Args@} @{child,
-% init, [Id, StartCnt]@} (_ is used to match StartCnt since one does not care
-% about that value), such that the Id assigned to C is negative.
+
+
+
+% Server process S can engage in a request-response cycle such that it
+% receives a request @{req, A1, A2@} consisting of two integers A1 and A2,
+% returning the result of their addition in the response @{resp, AA@}. It
+% however cannot return something other than their addition: this is taken
+% care of by the second necessity in the second conjunct via the action
+% clause @{resp, AA@} when AA =/= A1 + A2.
 with
 example:test(A, B) when A >= 0, A =< 10
 monitor
-and([P -> C, child:init([Id, _]) when Id < 0]ff).
+max(X.
+and(
+[S ? @{req, A1, A2@}] and(
+[S ! @{resp, AA@} when AA =/= A1 + A2]ff,
+[S ! @{resp, AA@} when AA =:= A1 + A2]X)
+)
+)
+).
+
+
+with
+server:loop(_)
+monitor
+and([_Launcher <- _Server, server:loop(_)]
+max(X.
+and(
+[_Server ? {_, _, {add, A, B}}] and(
+[_Server ! {_, {add, AB}} when AB =/= A + B]ff,
+[_Server ! {_, {add, AB}} when AB =:= A + B]X
+),
+[_Server ? {_, _, {_, _, _}}] and(
+[_Server ! {_, {_, _}}]X
+),
+[_Server ? {_, _, stop}] and(
+[_Server ! {_, {ok, stopped}}]X
+)
+)
+)
+).
 
 
 
-== Example
+
+
+
+
 
 
 
