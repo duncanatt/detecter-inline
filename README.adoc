@@ -74,7 +74,7 @@ monitor
 ----
 ====
 
-The property itself, `<property in SHMLnf>', is written using the grammar defined next.
+The property itself, `<property in SHMLnf>`, is written using the grammar defined next.
 
 
 === The SHML__nf__ grammar
@@ -82,17 +82,30 @@ The property itself, `<property in SHMLnf>', is written using the grammar define
 The SHML__nf__ grammar is defined by the following BNF:
 
 ----
-<SHMLnf> ::= ff (falsity, an atom) <1>
-          | X (recursion variable specified as a standard Erlang variable)
-          | max(X. <SHMLnf>) (maximal fix-point to specify recursive loops,
-          comprised of one variable and a sub-formula
-          <SHMLnf>)
-          | and(<SHMLnf list>) (a sequence of comma-separated conjuncts where
-each is itself a sub-formula <SHML> that however
-must start with a necessity [<ACTION>]<SHML>)
+<SHMLnf> ::= ff (falsity, an atom)  <1>
+          | X  <2>
+          | max(X. <SHMLnf>)  <3>
+          | and(<SHMLnf list>).  <4>
 ----
 <1> Falsity, an atom
 <2> Recursion variable specified as a standard Erlang variable
+<3> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHMLnf>`
+<4> A sequence of comma-separated conjuncts where each conjunct is a sub-formula `<SHMLnf>` that starts with a necessity `[<ACTION>]<SHMLnf>`
+
+A necessity, specified by `[]` contains the `<ACTION>` that should be matched with the trace event exhibited by the system.
+//
+Matching is performed both on the type of action as well as the data it carries in relation to the trace event.
+//
+There are five types of actions:
+
+[horizontal]
+Fork:: Process creation action, specified as `PID~p~ -> PID~c~, M:F(A)`. `<VAR_0>` is the process ID (PID) of the parent process and `<VAR_1>`, the PID of the child (forked) process. `<MFA>` denotes the function that was forked to execute in its own independent process: `M` is the _module_ where the function resides, `F`, the _function_, and `A`, the _arguments_ specified to `F`.
+Initialise:: Process initialisation action, specified as `<VAR_0> <- <VAR_1>, <MFA>`. <VAR_
+Exit:: The brain of the computer.
+Send:: The brain of the computer.
+Receive:: The brain of the computer.
+
+
 
 
 == Example
