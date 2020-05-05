@@ -126,7 +126,7 @@
 %%         {@desc The directory containing include files that the source files
 %%                in `SrcDir' depend on.
 %%         }
-%%         {@term `@{filer, Fun@}'}
+%%         {@term `@{filter, Fun@}'}
 %%         {@desc The filter function that suppressed events. Defaults to allows
 %%                all.
 %%         }
