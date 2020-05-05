@@ -20,8 +20,8 @@ ifdef::env-github[]
 endif::[]
 
 // Shields.
-image::https://img.shields.io/badge/license-GPLv3-blue[link="https://www.gnu.org/licenses/gpl-3.0"]
-image::https://img.shields.io/badge/version-v0.9-yellow[]
+image:https://img.shields.io/badge/license-GPLv3-blue[link="https://www.gnu.org/licenses/gpl-3.0"]
+image:https://img.shields.io/badge/version-v0.9-yellow[]
 
 `detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
 //
@@ -91,7 +91,7 @@ The SHML~nf~ grammar is defined by the following BNF:
 <1> Falsity, an atom
 <2> Recursion variable specified as a standard Erlang variable
 <3> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHML~nf~>`
-<4> A sequence of comma-separated *conjuncts* where each conjunct is a sub-formula `<SHML~nf~>` that starts with a necessity `[<ACTION>]<SHML~nf~>`
+<4> A sequence of comma-separated *conjuncts* where each conjunct is a sub-formula `<SHML~nf~>` that starts with a necessity `[<ACTION>]<SHML~nf~>`.
 
 A necessity, specified by `[]` contains the `<ACTION>` that is matched with the trace event exhibited by the system.
 //
@@ -207,6 +207,8 @@ Our server is started and stopped from the Erlang REPL as follows:
 {ok,stopped}
 ----
 
+Executing `server:start/1` returns the PID <0.81.0> assigned to server process by Erlang.
+//
 We specified the option `ok` when starting the server to launch our server process in correct operating mode.
 //
 Option `buggy` starts the server in buggy mode, and this is the mode we shall use to test our correctness properties with.
@@ -467,99 +469,10 @@ The following analysis is effected by the monitor:
 <6> Calling `client:add/2` at this point *still* triggers the analysis to flag a violation.
 
 
+=== Conclusion
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-== Stuff
-.Possible DefOps manual locations
-* West wood maze
-** Maze heart
-*** Reflection pool
-** Secret exit
-* Untracked file in git repository
-
-
-. Protons
-. Electrons
-. Neutrons
-
-
-CPU:: The brain of the computer.
-Hard drive:: Permanent storage for operating system and/or user files.
-RAM:: Temporarily stores information the CPU uses during operation.
-Keyboard:: Used to enter text or control items on the screen.
-Mouse:: Used to point to and select items on your computer screen.
-Monitor:: Displays information in visual form using text and graphics.
-
-
-[horizontal]
-CPU:: The brain of the computer.
-Hard drive:: Permanent storage for operating system and/or user files.
-RAM:: Temporarily stores information the CPU uses during operation.
-
-
-* The header in AsciiDoc must start with a document title.
-+
-The header is optional.
-
-
-----
-This is an example of a _listing block_.
-The content inside is displayed as <pre> text.
-----
-
-====
-Example
-====
-
-____
-Verse
-____
-
-****
-Sidebar
-****
-
-[cols=2*,options=header]
-|===
-|Name |Group
-
-|Firefox |Web Browser
-
-|Ruby |Programming Language
-|===
-
-
-stem:[\sqrt4 = 2]
-
-Water (stem:[H_2O]) is a critical component.
-
-stem:[\langle \mu\rangle]
-
-
-[TIP]
-
-Duncan
+We invite readers to try specifying other properties on our client-server system.
+//
+For instance, one could write a second property inside `example_1.erl` to flag a rejection once the server is terminated with the function `server:stop/0`.
+//
+Should you have any questions, comments or spot any bugs, do not hesitate to contact us.
