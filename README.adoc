@@ -1,6 +1,6 @@
-= Lightweight Markup Languages
-Writer <duncan.attard.01@um.edu.mt>
-v0.9, 04-05-2020 // Star Wars Day ^_^
+= Introduction
+<duncan.attard.01@um.edu.mt>
+v0.9, 04-05-2020 (Star Wars Day)
 :appversion: 0.9
 
 :stem: latexmath
@@ -9,8 +9,6 @@ v0.9, 04-05-2020 // Star Wars Day ^_^
 :toc:
 :toc-placement!:
 //:sectnums:
-
-
 
 // Github-specific styling.
 ifdef::env-github[]
@@ -67,7 +65,7 @@ The function `test` in module `example` takes two parameters, `A` and `B`, where
 //
 A property specification that targets the function `test` is specified as follows:
 
-[subs="quotes"]
+[subs="+quotes"]
 ----
 *with*
   example:test(A, B) when A >= 0, A =< 10
@@ -83,7 +81,7 @@ The property itself, `_property in SHMLnf_`, is written using the grammar define
 
 The SHML~nf~ grammar is defined by the following BNF:
 
-[subs="quotes"]
+[subs="+quotes"]
 ----
 <SHML~nf~> ::= *ff*  <1>
           | _X_  <2>
@@ -127,7 +125,7 @@ This property checks that the parent process does not fork child processes with 
 //
 The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` such that the `Id` assigned is negative".
 
-[subs="quotes"]
+[subs="+quotes"]
 ----
 *with*
   parent:start()
@@ -147,7 +145,7 @@ This property checks that the parent process does not fork a child process and t
 //
 The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` and terminate immediately with the reason `aborted` ".
 
-[subs="quotes,macros"]
+[subs="+quotes,+macros"]
 ----
 *with*
   parent:start()
@@ -163,14 +161,18 @@ We remark that, following the SHML~nf~ grammar given above, nesting `and` constr
 ====
 
 
-== Sample System
+== Example
 
+The example that we cover next assumes that Erlang is installed and that you are familiar with the Erlang REPL.
+
+
+=== Sample System
 
 We include a source code sample that models a simple client-server interaction.
 //
-This sample can be found under the `/src/system` directory.
+This sample can be found under the `./src/system/` directory.
 //
-The server (`server.erl`) exposes two functions, start and stop, that are used to launch and terminate the server process.
+The server module (`server.erl`) exposes two functions, start and stop, that are used to launch and terminate the server process.
 //
 It also implements three operations described below:
 //
@@ -188,30 +190,107 @@ The variables `From` and `Ref` bind to the PID of the sender process and referen
 //
 The function `stop/1` exposed by the `server` module sends a `stop` request to the server process to terminate it.
 //
-Our server is started and stopped as follows:
+Our server is started and stopped from the Erlang REPL as follows:
 
-[source,erlang]
+.Starting and stopping the server
+[source,erlangrepl]
 ----
-server:start(ok).
-server:stop().
+1> server:start(ok).
+<0.81.0>
+2> server:stop().
+{ok,stopped}
 ----
 
-
-
-
-
-
-
+We specified the option `ok` when starting the server to launch our server process in normal operating mode.
 //
-The client (`client.erl`) exposes two remote invocation stubs that correspond to the operations add and multiply from the `server` module.
+Option `buggy` starts the server in buggy mode, and this is the mode we shall use to test our correctness properties with.
+//
+The message on the last line, `{ok,stopped}`, shows the Erlang tuple the server sends to the caller of `server:stop/0` as a confirmation.
+//
+Raw requests to the server process can be sent as follows:
+
+.Sending raw requests
+[source,erlangrepl]
+----
+1> server:start(ok).
+<0.81.0>
+2> server ! {self(), ref, {add, 9, 7}}.
+{<0.79.0>,ref,{add,9,7}}
+3> flush().
+Shell got {ref,{add,16}}
+----
+
+The client module (`client.erl`) exposes two remote invocation stubs that encapsulate the sending and receiving of message requests to and from the server.
+//
+These correspond to the add and multiply operations, and are used as follows:
+
+.Adding and multiplying using the client API
+[source,erlangrepl]
+----
+1> server:start(ok).
+<0.81.0>
+2> client:add(9, 7).
+16
+3> client:mul(9, 7).
+63
+----
 
 
+=== Monitoring the server
 
-
-
-
+Suppose we would like to specify a correctness property in SHML~nf~ that verifies the addition functionality exposed by the server.
+//
+This property, found in `./examples/example_1.hml`, and is explained below.
 
 .{zwsp}
+====
+
+The property should be interpreted from the point of view of the server process.
+
+It reads as
+
+This property reads as:
+
+[subs="+quotes,+macros"]
+----
+*with*
+  server:loop(pass:[_])  <1>
+*monitor*
+  and([Launcher <- Server, server:loop(pass:[_])]  <2>
+  max(_X_. <3>
+    and(  <4>
+      [Server ? {Client, pass:[_], {add, A, B}}] and(  <5> <6>
+        [Server ! {pass:[_], {add, AB}} when AB =/= A + B] *ff*,  <7>
+        [Server ! {pass:[_], {add, AB}} when AB =:= A + B] _X_  <8>
+      ),
+      [Server ? {Client, pass:[_], {pass:[_], pass:[_], pass:[_]}}] and(
+        [Server ! {pass:[_], {pass:[_], pass:[_]}}] _X_
+      ),
+      [Server ? {Stopper, pass:[_], stop}] and(
+        [Server ! {pass:[_], {ok, stopped}}] _X_
+      )
+    )
+  )
+).
+----
+
+//The property matches trace events that intuitively follow these steps:
+
+To facilitate our explanation, we break down the property into the following intuitive steps:
+
+<1> Target the function `server:loop/1` with any argument (it can match the arguments `ok` or `buggy`)
+<2> Match the forked initialisation event exhibited by the server
+<3> Start the maximal fix-point that allows us to encode looping via recursion on the variable _X_
+<4> Outer `and(...)` consists of a list with three conjuncts
+<5> First conjunct specifies the meat of the property that determines whether the server is buggy
+<6> Match the client request receive event `?` by the server, in this case `{add, A, B}`
+<7> Match the response send event `!` to the client, `{add, AB}}` when the addition of `A` and `B` does not match the value `AB` returned by the server; *ff* signals a violation of the property
+====
+
+
+
+
+
 ====
 
 
@@ -241,25 +320,7 @@ and(
 ).
 
 
-with
-server:loop(_)
-monitor
-and([_Launcher <- _Server, server:loop(_)]
-max(X.
-and(
-[_Server ? {_, _, {add, A, B}}] and(
-[_Server ! {_, {add, AB}} when AB =/= A + B]ff,
-[_Server ! {_, {add, AB}} when AB =:= A + B]X
-),
-[_Server ? {_, _, {_, _, _}}] and(
-[_Server ! {_, {_, _}}]X
-),
-[_Server ? {_, _, stop}] and(
-[_Server ! {_, {ok, stopped}}]X
-)
-)
-)
-).
+
 
 
 
