@@ -1,6 +1,7 @@
 = Lightweight Markup Languages
 Writer <duncan.attard.01@um.edu.mt>
 v0.9, 04-05-2020 // Star Wars Day ^_^
+:appversion: 0.9
 
 :stem: latexmath
 :icons: font
@@ -8,12 +9,8 @@ v0.9, 04-05-2020 // Star Wars Day ^_^
 :toc-placement!:
 //:sectnums:
 
-:appversion: 0.9
 
-// Custom metadata.
-//:hmlnf: HMLnf
-//:detecter: `detectEr`
-
+// Github-specific styling.
 ifdef::env-github[]
 :tip-caption: :bulb:
 :note-caption: :information_source:
@@ -22,9 +19,9 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 
-image::https://img.shields.io/badge/License-Apache%202.0-blue.svg[link="http://www.apache.org/licenses/LICENSE-2.0"]
-
-
+// Shields.
+image::https://img.shields.io/badge/License-GPLv3-blue.svg[link="https://www.gnu.org/licenses/gpl-3.0"]
+image::https://img.shields.io/badge/version-v0.9-yellow[]
 
 `detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
 //
