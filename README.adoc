@@ -97,14 +97,52 @@ A necessity, specified by `[]` contains the `<ACTION>` that should be matched wi
 Matching is performed both on the type of action as well as the data it carries in relation to the trace event.
 //
 There are five types of actions:
-
+//
 [horizontal]
-Fork:: Process creation action, specified as `PID~p~ -> PID~c~, M:F(A)`. `<VAR_0>` is the process ID (PID) of the parent process and `<VAR_1>`, the PID of the child (forked) process. `<MFA>` denotes the function that was forked to execute in its own independent process: `M` is the _module_ where the function resides, `F`, the _function_, and `A`, the _arguments_ specified to `F`.
-Initialise:: Process initialisation action, specified as `<VAR_0> <- <VAR_1>, <MFA>`. <VAR_
-Exit:: The brain of the computer.
-Send:: The brain of the computer.
-Receive:: The brain of the computer.
+Fork:: Process creation action, specified as `PID~p~ -> PID~c~, M:F(A)`. This action is exhibited by the parent process invoking fork.
+Forked:: Process initialisation action, specified as `PID~p~ <- PID~c~, M:F(A)`. This action is exhibited by the child process that has been forked.
+Exit:: Process termination action, specified as `PID ** CLAUSE`.
+Send:: Process send action, specified as `PID ! CLAUSE`.
+Receive:: Process receive action, specified as `PID ? CLAUSE`.
+Any:: Generic user-given process action, specified as `CLAUSE`.
 
+where `PID` is a generic Erlang variable that binds to a process ID (PID).
+//
+`PID~p~` denotes the PID of the parent process and `PID~c~`, the PID of the child (forked) process.
+//
+`M:F(A)` denotes the function that was forked to execute in its own independent process: the variable `M` binds to the name of the _module_ where the function resides, `F`, to the forked _function_, and `A`, binds to the _arguments_ specified in `F`.
+//
+`CLAUSE` represents a standard Erlang clause that may in turn contain generic data variables.
+//
+Actions inside the necessity construct `[]` may optionally include guards, albeit with the restrictions mentioned above.
+
+The following are some examples of scripted HML__nf__ properties.
+
+====
+This property checks that the parent process does not fork child processes with negative IDs.
+//
+The property reads as: "the parent process `P` cannot fork a child process `C` using the function child:init(Id, StartCnt) such that the `Id` assigned is negative"
+
+[subs=+quotes]
+----
+*with*
+  parent:start()
+monitor
+    and([P -> C, child:init([Id, _]) when Id < 0]ff)
+----
+
+
+====
+
+
+
+% Parent process P cannot fork a child process C via @{M,F,Args@} @{child,
+% init, [Id, StartCnt]@} (_ is used to match StartCnt since one does not care
+% about that value), such that the Id assigned to C is negative.
+with
+example:test(A, B) when A >= 0, A =< 10
+monitor
+and([P -> C, child:init([Id, _]) when Id < 0]ff).
 
 
 
