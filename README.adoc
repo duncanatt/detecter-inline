@@ -164,6 +164,12 @@ We remark that, following the SHML~nf~ grammar given above, nesting `and` constr
 == Example
 
 The example that we cover next assumes that Erlang is installed and that you are familiar with the Erlang REPL.
+//
+Before proceeding, the source code should be compiled.
+//
+This can be done from the command prompt using the make file target `make clean`.
+//
+The Erlang REPL can be launched from the current directory by typing `erl`.
 
 
 === Sample System
@@ -201,7 +207,7 @@ Our server is started and stopped from the Erlang REPL as follows:
 {ok,stopped}
 ----
 
-We specified the option `ok` when starting the server to launch our server process in normal operating mode.
+We specified the option `ok` when starting the server to launch our server process in correct operating mode.
 //
 Option `buggy` starts the server in buggy mode, and this is the mode we shall use to test our correctness properties with.
 //
@@ -222,7 +228,7 @@ Shell got {ref,{add,16}}
 
 The client module (`client.erl`) exposes two remote invocation stubs that encapsulate the sending and receiving of message requests to and from the server.
 //
-These correspond to the add and multiply operations, and are used as follows:
+These correspond to the add and multiply operations, and are used like so:
 
 .Adding and multiplying using the client API
 [source,erlangrepl]
@@ -235,21 +241,31 @@ These correspond to the add and multiply operations, and are used as follows:
 63
 ----
 
+If we start the server using the `buggy` flag, the add and multiply operations used above return the wrong result.
+
+.Starting the server in buggy mode
+[source,erlangrepl]
+----
+1> server:start(ok).
+<0.81.0>
+2> client:add(9, 7).
+17
+3> client:mul(9, 7).
+64
+----
+
 
 === Monitoring the server
 
 Suppose we would like to specify a correctness property in SHML~nf~ that verifies the addition functionality exposed by the server.
 //
-This property, found in `./examples/example_1.hml`, and is explained below.
+For this particular case, we are only interested in the _addition functionality_.
+//
+This property, found in `./examples/example_1.hml`, is explained below.
 
 .{zwsp}
 ====
-
-The property should be interpreted from the point of view of the server process.
-
-It reads as
-
-This property reads as:
+Our property should be interpreted from the point of view of the server process.
 
 [subs="+quotes,+macros"]
 ----
@@ -263,18 +279,16 @@ This property reads as:
         [Server ! {pass:[_], {add, AB}} when AB =/= A + B] *ff*,  <7>
         [Server ! {pass:[_], {add, AB}} when AB =:= A + B] _X_  <8>
       ),
-      [Server ? {Client, pass:[_], {pass:[_], pass:[_], pass:[_]}}] and(
-        [Server ! {pass:[_], {pass:[_], pass:[_]}}] _X_
+      [Server ? {Client, pass:[_], {pass:[_], pass:[_], pass:[_]}}] and(  <9>
+        [Server ! {pass:[_], {pass:[_], pass:[_]}}] _X_  <10>
       ),
-      [Server ? {Stopper, pass:[_], stop}] and(
-        [Server ! {pass:[_], {ok, stopped}}] _X_
+      [Server ? {Stopper, pass:[_], stop}] and(  <11>
+        [Server ! {pass:[_], {ok, stopped}}] _X_  <12>
       )
     )
   )
 ).
 ----
-
-//The property matches trace events that intuitively follow these steps:
 
 To facilitate our explanation, we break down the property into the following intuitive steps:
 
@@ -282,42 +296,180 @@ To facilitate our explanation, we break down the property into the following int
 <2> Match the forked initialisation event exhibited by the server
 <3> Start the maximal fix-point that allows us to encode looping via recursion on the variable _X_
 <4> Outer `and(...)` consists of a list with three conjuncts
-<5> First conjunct specifies the meat of the property that determines whether the server is buggy
-<6> Match the client request receive event `?` by the server, in this case `{add, A, B}`
-<7> Match the response send event `!` to the client, `{add, AB}}` when the addition of `A` and `B` does not match the value `AB` returned by the server; *ff* signals a violation of the property
+<5> *First* conjunct specifies the meat of the property that determines whether the server is buggy
+<6> Match the client request receive event `?` exhibited by the server, in this case `{add, A, B}`, continued by,
+<7> Match the response send event `!` to the client, `{add, AB}}` when the addition of `A` and `B` *does not* match the value `AB` returned by the server; *ff* signals a violation of the property, *AND*,
+<8> Match the response send event `!` to the client, `{add, AB}}` when the addition of `A` and `B` matches the value `AB` returned by the server; the recursive variable _X_ is unfolded
+<9> *Second* conjunct matches any client request receive events, continued by,
+<10> Match any response send event to the client; the recursive variable _X_ is unfolded
+<11> *Third* conjunct matches the stop request receive event `?` exhibited by the server, `stop`, continued by
+<12> Match the response send event `!` exhibited by the server, `{ok, stopped}`; the recursive variable _X_ is unfolded.
 ====
 
 
+=== Synthesising the runtime monitor
+
+To synthesise the runtime monitor, the following command can be run from the Erlang REPL:
+
+.Compiling the SHML~nf~ property down to a monitor
+[source,erlangrepl]
+----
+1> hml_eval:compile("examples/example_1.hml", [{outdir, "ebin"}, v]).
+ok
+----
+
+The corresponding file `example_1.beam` containing the executable monitor code is created in the directory `ebin`.
+//
+Our compiler takes the following options:
+
+[cols=2*,options=header]
+|===
+|Option |Description
+|`outdir` |Directory where the generated output monitor file should be written. If left unspecified, defaults to the current directory `.`
+|`v` |Inserts logging statements into the generated output monitor file. Only use for debugging purposes
+|`erl` |Instructs the compiler to output the generated monitor as Erlang source code rather than beam. If left unspecified, defaults to beam
+|===
+
+We used the `v` flag so that the compiled monitor produces verbose output on the REPL.
+
+
+=== Instrumenting the system
+
+The system is instrumented by executing the weave function.
+//
+We specify the source file (`server.erl`) to be weaved, together with the function `example_1:mfa_spec/1` encapsulating the synthesised monitor code corresponding to our property.
+
+.Instrumenting the server
+[source,erlangrepl]
+----
+2> weaver:weave_file("src/system/server.erl", fun example_1:mfa_spec/1, [{outdir, "ebin"}]).
+{ok,server,[]}
+----
+
+//The function `launcher:filter_spec/1` filters out extraneous trace events that are specific to Erlang functions such as `io:format/{1,2,3}`, and which are not relevant to our account.
+//
+Readers can inspect the source in `launcher.erl` for more details.
+//
+As before, the output directory is set to `ebin`; the instrumented server module `server.beam` is correspondingly compiled to this directory.
+//
+Our code weaver can also instrument all the files in a given directory using `weaver:weave/3`
+//
+The options supported by `weaver:weave_file/3` and `weaver:weave/3` are identical:
+
+[cols=2*,options=header]
+|===
+|Option |Description
+|`outdir` |Directory where the generated weaved files should be written. If left unspecified, defaults to the current directory `.`
+|`i` |Directory containing include files that the source files in the source directory depend on
+|`filter` |filter function that suppressed events. If left unspecified, defaults to allows any
+|`erl` |Instructs the compiler to output the generated files as Erlang source code rather than beam. If left unspecified, defaults to beam
+|===
 
 
 
-====
+=== Running the correct server
+
+We start by testing our monitor on the correct version of the server.
+//
+The monitor generated earlier with the verbose `v` flag set logs to the REPL the trace event it analyses.
+//
+Log statements can be identified by the PID in the square brackets.
+//
+In the excerpt below, the references in `#Ref<...>` are shortened for clarity.
+//In this analysis, the PIDs are assigned as follows: server = <0.81.0>
+
+.Runtime analysis
+[source,erlangrepl,subs="+quotes"]
+----
+1> server:start(ok).
+[<0.81.0>] Analyzing event {trace,<0.81.0>,spawned,<0.79.0>,{server,loop,[0]}}.  <1>
+<0.81.0>
+2> client:add(9, 7).  <2>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,'receive',{<0.79.0>, #Ref<...>,{add,9,7}}}.  <3>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,send, {#Ref<...>,{add,16}}, <0.79.0>}.  <4>
+[<0.81.0>] Unfolding rec. var. '_X_'.  <5>
+16  <6>
+3> client:mul(9, 7).  <7>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,'receive',{<0.79.0>, #Ref<...>,{mul,9,7}}}.
+[<0.81.0>] Analyzing event {trace,<0.81.0>,send,{#Ref<...>,{mul,63}},<0.79.0>}.
+[<0.81.0>] Unfolding rec. var. '_X_'.
+63
+----
+
+The monitoring code weaved into the server effects this analysis:
+
+<1> `spawned` event is analysed when the server is launched; `spawned` is the Erlang equivalent of forked
+<2> User invokes `client:add/2` on Erlang REPL
+<3> `receive` event is analysed when the request sent by `client:add/2` is processed by the server
+<4> `send` event is analysed when the server replies back
+<5> Send request by the server matches the expected result, _i.e._, `9 + 7 =:= 16`; the internal monitor branch that unfolds the recursive variable _X_ is taken, and the monitor loops back to its starting state
+<6> Correct result returned from server
+<7> User invokes `client:mul/2` on Erlang REPL and a similar analysis is performed by the weaved monitor.
 
 
-====
+=== Running the buggy server
+
+We now test the buggy server when requesting additions from the server.
+
+.Runtime analysis with `add`
+[source,erlangrepl,subs="+quotes"]
+----
+1> server:start(buggy).
+[<0.81.0>] Analyzing event {trace,<0.81.0>,spawned,<0.79.0>,{server,loop,[1]}}.  <1>
+<0.81.0>
+2> client:add(9, 7).  <2>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,'receive',{<0.79.0>,#Ref<...>,{add,9,7}}}.  <3>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,send,{#Ref<...>,{add,17}},<0.79.0>}.  <4>
+[<0.81.0>] Reached verdict '*no*'.  <5>
+17
+3> client:add(9, 7).  <6>
+17
+----
+
+The monitoring code weaved into the server effects this analysis:
+
+<1> `spawned` event is analysed when the server is launched
+<2> User invokes `client:add/2` on Erlang REPL
+<3> `receive` event is analysed when the request sent by `client:add/2` is processed by the server
+<4> `send` event is analysed when the server replies back
+<5> Send request by the server *does not match* the expected result, _i.e._, `9 + 7 =/= 17`; the internal monitor branch that flags a rejection is taken, and the monitor stops its analysis
+<6> Subsequent calls to `client:add/2` do not trigger the monitor henceforth.
+
+
+Performing the same execution and requesting multiplications produces different results:
+
+
+.Runtime analysis with `mul`
+[source,erlangrepl,subs="+quotes"]
+----
+1> server:start(buggy).
+[<0.81.0>] Analyzing event {trace,<0.81.0>,spawned,<0.79.0>,{server,loop,[1]}}.  <1>
+<0.81.0>
+2> client:mul(9, 7).  <2>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,'receive',{<0.79.0>,#Ref<...>,{mul,9,7}}}.  <3>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,send,{#Ref<0.3424250081.1934360577.92435>,{mul,64}},<0.79.0>}.  <4>
+[<0.81.0>] Unfolding rec. var. '_X_'.  <5>
+64
+client:add(9, 7).  <6>
+[<0.81.0>] Analyzing event {trace,<0.81.0>,'receive',{<0.79.0>,#Ref<...>,{add,9,7}}}.
+[<0.81.0>] Analyzing event {trace,<0.81.0>,send,{#Ref<...>,{add,17}},<0.79.0>}.
+[<0.81.0>] Reached verdict '*no*'.
+17
+----
+
+The following analysis is effected by the monitor:
+
+<1> `spawned` event is analysed when the server is launched
+<2> User invokes `client:mul/2` on Erlang REPL
+<3> `receive` event is analysed when the request sent by `client:mul/2` is processed by the server
+<4> `send` event is analysed when the server replies back
+<5> Send request by the server for `mul` does not match the `add` conjunct; the second conjunct that matches any request is taken, and the monitor unfolds the recursive variable _X_, looping back
+<6> Calling `client:add/2` at this point *still* triggers the analysis to flag a violation.
 
 
 
 
 
-
-% Server process S can engage in a request-response cycle such that it
-% receives a request @{req, A1, A2@} consisting of two integers A1 and A2,
-% returning the result of their addition in the response @{resp, AA@}. It
-% however cannot return something other than their addition: this is taken
-% care of by the second necessity in the second conjunct via the action
-% clause @{resp, AA@} when AA =/= A1 + A2.
-with
-example:test(A, B) when A >= 0, A =< 10
-monitor
-max(X.
-and(
-[S ? @{req, A1, A2@}] and(
-[S ! @{resp, AA@} when AA =/= A1 + A2]ff,
-[S ! @{resp, AA@} when AA =:= A1 + A2]X)
-)
-)
-).
 
 
 
