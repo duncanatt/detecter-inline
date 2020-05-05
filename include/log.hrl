@@ -14,7 +14,7 @@
 %% Comment the line below to disable logging entirely (i.e. logging statements
 %% in the code do not show up).
 %% -----------------------------------------------------------------------------
--define(log, log).
+%%-define(log, log).
 
 %% -----------------------------------------------------------------------------
 %% The macro log_level controls the logging level. It can be set to a value
