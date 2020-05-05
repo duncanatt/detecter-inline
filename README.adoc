@@ -38,6 +38,7 @@ Our tool is developed in the Erlang language and for the Erlang eco-system.
 
 toc::[]
 
+
 == Overview
 
 Correctness properties in `detectEr` are scripted in plain text format using SHML__nf__ syntax.
@@ -64,6 +65,7 @@ Specifications can only target function calls, _i.e._, `Mod:Fun(Args)`, that hav
 The function `test` in module `example` takes two parameters, `A` and `B`, where `A` is an integer in the closed interval [0, 10].
 //
 A property specification that targets the function `test` is specified as follows:
+
 ----
 with
   example:test(A, B) when A >= 0, A =< 10
@@ -72,13 +74,25 @@ monitor
 ----
 ====
 
+The property itself, `<property in SHMLnf>', is written using the grammar defined next.
 
 
+=== The SHML__nf__ grammar
 
+The SHML__nf__ grammar is defined by the following BNF:
 
-
-=== The SHML__nf__ syntax
-
+----
+<SHMLnf> ::= ff (falsity, an atom) // <1>
+          | X (recursion variable specified as a standard Erlang variable)
+          | max(X. <SHMLnf>) (maximal fix-point to specify recursive loops,
+          comprised of one variable and a sub-formula
+          <SHMLnf>)
+          | and(<SHMLnf list>) (a sequence of comma-separated conjuncts where
+each is itself a sub-formula <SHML> that however
+must start with a necessity [<ACTION>]<SHML>)
+----
+<1> Falsity, an atom
+<2> Recursion variable specified as a standard Erlang variable
 
 
 == Example
