@@ -82,7 +82,7 @@ The property itself, `<property in SHMLnf>', is written using the grammar define
 The SHML__nf__ grammar is defined by the following BNF:
 
 ----
-<SHMLnf> ::= ff (falsity, an atom) // <1>
+<SHMLnf> ::= ff (falsity, an atom) <1>
           | X (recursion variable specified as a standard Erlang variable)
           | max(X. <SHMLnf>) (maximal fix-point to specify recursive loops,
           comprised of one variable and a sub-formula
