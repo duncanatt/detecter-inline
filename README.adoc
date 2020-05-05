@@ -1,12 +1,18 @@
 = Lightweight Markup Languages
-Doc Writer <doc.writer@asciidoc.org>
-v1.0, 2012-01-01
-:appversion: 1.0.0
+Writer <duncan.attard.01@um.edu.mt>
+v0.9, 04-05-2020 // Star Wars Day ^_^
+
 :stem: latexmath
 :icons: font
 :toc:
 :toc-placement!:
-:sectnums:
+//:sectnums:
+
+:appversion: 0.9
+
+// Custom metadata.
+//:hmlnf: HMLnf
+//:detecter: `detectEr`
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -16,49 +22,64 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 
+image::https://img.shields.io/badge/License-Apache%202.0-blue.svg[link="http://www.apache.org/licenses/LICENSE-2.0"]
+
+
+
+`detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
 //
-
-According to Wikipedia...
-
-The current version of the application is {appversion}.
+`detectEr` assumes access to the source code of the program to be monitored.
+//
+It instruments monitoring instructions into the target program via _code injection_ by manipulating its parsed abstract syntax tree.
+//
+The modified syntax tree is compiled by `detectEr` into an executable form which can then be run normally.
+//
+The instrumented instructions perform the runtime analysis in _synchronous_ fashion as the program executes.
+//
+Our tool is developed in the Erlang language and for the Erlang eco-system.
 
 
 toc::[]
 
+== Overview
 
-== Level 1
-
-=== Level 2
-
-==== Level 3
-
-
-
-NOTE: This is a test
-
-WARNING: Yuhu
-
-bold *constrained* & **un**constrained
-
-italic _constrained_ & __un__constrained
-
-bold italic *_constrained_* & **__un__**constrained
-
-monospace `constrained` & ``un``constrained
-
-monospace bold `*constrained*` & ``**un**``constrained
-
-monospace italic `_constrained_` & ``__un__``constrained
-
-monospace bold italic `*_constrained_*` & ``**__un__**``constrained
+Correctness properties in `detectEr` are scripted in plain text format using SHML__nf__ syntax.
+//
+These are then parsed, and the corresponding executable runtime monitor is synthesised in its source or binary form.
+//
+The resulting file bears the name of the properties script, and contains one function, `mfa_spec`, that encapsulates all the monitoring logic.
 
 
-...
+=== Script file
 
---
+More than one property may be specified in a single script file, albeit separated by commas `,`; the last one must be terminated with a period `.`.
+//
+A specification must target _one_ Erlang function pattern, and may optionally include simple _guard statements_.
+//
+The guard specification format follows the one used by Erlang, the only difference being that guard functions (_e.g._ `is_pid/1`)
 
-Duncan's
 
+
+
+=== The SHML__nf__ syntax
+
+
+
+== Example
+
+
+
+
+
+
+
+
+
+
+
+
+
+== Stuff
 .Possible DefOps manual locations
 * West wood maze
 ** Maze heart
