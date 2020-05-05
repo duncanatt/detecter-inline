@@ -169,7 +169,9 @@ Before proceeding, the source code should be compiled.
 //
 This can be done from the command prompt using the make file target `make clean`.
 //
-The Erlang REPL can be launched from the current directory by typing `erl`.
+The Erlang REPL can be conveniently launched from the current directory by typing `make run`.
+//
+Whenever necessary, exit the REPL using the key combination `CTRL+c`.
 
 
 === Sample System
@@ -373,6 +375,8 @@ The options supported by `weaver:weave_file/3` and `weaver:weave/3` are identica
 
 We start by testing our monitor on the correct version of the server.
 //
+Exit the REPL by using `CTRL+c` and type `make run` again on the terminal to _reload the instrumented_ server.
+//
 The monitor generated earlier with the verbose `v` flag set logs to the REPL the trace event it analyses.
 //
 Log statements can be identified by the PID in the square brackets.
@@ -412,6 +416,8 @@ The monitoring code weaved into the server effects this analysis:
 === Running the buggy server
 
 We now test the buggy server when requesting additions from the server.
+//
+Exit the REPL by using `CTRL+c` and type `make run` again on the terminal to _reload the instrumented_ server.
 
 .Runtime analysis with `add`
 [source,erlangrepl,subs="+quotes"]
