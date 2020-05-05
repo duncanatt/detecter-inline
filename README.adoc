@@ -4,6 +4,9 @@ v1.0, 2012-01-01
 :appversion: 1.0.0
 :stem: latexmath
 :icons: font
+:toc:
+:toc-placement!:
+:sectnums:
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -13,14 +16,14 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 
-//:sectnums:
+//
 
 According to Wikipedia...
 
 The current version of the application is {appversion}.
 
 
-:toc:
+toc::[]
 
 
 == Level 1
