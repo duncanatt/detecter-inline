@@ -1,0 +1,119 @@
+= Lightweight Markup Languages
+Doc Writer <doc.writer@asciidoc.org>
+v1.0, 2012-01-01
+:appversion: 1.0.0
+:stem: latexmath
+:icons: font
+
+//:sectnums:
+
+According to Wikipedia...
+
+The current version of the application is {appversion}.
+
+
+:toc:
+
+
+== Level 1
+
+=== Level 2
+
+==== Level 3
+
+
+
+NOTE: This is a test
+
+WARNING: Yuhu
+
+bold *constrained* & **un**constrained
+
+italic _constrained_ & __un__constrained
+
+bold italic *_constrained_* & **__un__**constrained
+
+monospace `constrained` & ``un``constrained
+
+monospace bold `*constrained*` & ``**un**``constrained
+
+monospace italic `_constrained_` & ``__un__``constrained
+
+monospace bold italic `*_constrained_*` & ``**__un__**``constrained
+
+
+...
+
+--
+
+Duncan's
+
+.Possible DefOps manual locations
+* West wood maze
+** Maze heart
+*** Reflection pool
+** Secret exit
+* Untracked file in git repository
+
+
+. Protons
+. Electrons
+. Neutrons
+
+
+CPU:: The brain of the computer.
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+Keyboard:: Used to enter text or control items on the screen.
+Mouse:: Used to point to and select items on your computer screen.
+Monitor:: Displays information in visual form using text and graphics.
+
+
+[horizontal]
+CPU:: The brain of the computer.
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+
+
+* The header in AsciiDoc must start with a document title.
++
+The header is optional.
+
+
+----
+This is an example of a _listing block_.
+The content inside is displayed as <pre> text.
+----
+
+====
+Example
+====
+
+____
+Verse
+____
+
+****
+Sidebar
+****
+
+[cols=2*,options=header]
+|===
+|Name |Group
+
+|Firefox |Web Browser
+
+|Ruby |Programming Language
+|===
+
+
+stem:[\sqrt4 = 2]
+
+Water (stem:[H_2O]) is a critical component.
+
+stem:[\langle \mu\rangle]
+
+
+[TIP]
+
+Duncan

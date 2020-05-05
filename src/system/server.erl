@@ -36,32 +36,28 @@
 %%% Internal exports.
 -export([loop/1]).
 
-%%% Type exports.
--export_type([]).
-
 
 %%% ----------------------------------------------------------------------------
 %%% Macro and record definitions.
 %%% ----------------------------------------------------------------------------
 
+%% Normal and buggy operation constants.
 -define(MODE_OK, ok).
 -define(MODE_BUGGY, buggy).
-
-%%% ----------------------------------------------------------------------------
-%%% Type declarations.
-%%% ----------------------------------------------------------------------------
 
 
 %%% ----------------------------------------------------------------------------
 %%% Public API.
 %%% ----------------------------------------------------------------------------
 
+%% @doc Starts server.
 start(Mode) ->
   register(?MODULE, Pid = spawn(?MODULE, loop, [
     if Mode =:= ?MODE_OK -> 0; Mode =:= ?MODE_BUGGY -> 1 end
   ])),
   Pid.
 
+%% @doc Stops server.
 stop() ->
   util:rpc(?MODULE, stop).
 
@@ -70,30 +66,27 @@ stop() ->
 %%% Internal exports.
 %%% ----------------------------------------------------------------------------
 
+%% @private Main server loop.
 loop(ErrFact) ->
   receive
     {From, Ref, {add, A, B}} ->
+
+      % Handle addition request from client.
       From ! {Ref, {add, A + B + ErrFact}},
       loop(ErrFact);
 
     {From, Ref, {mul, A, B}} ->
+
+      % Handle multiplication request from client.
       From ! {Ref, {mul, A * B + ErrFact}},
       loop(ErrFact);
 
     {From, Ref, stop} ->
+
+      % Handle stop request. Server does not loop again.
       From ! {Ref, {ok, stopped}};
 
     Any ->
       io:format("WARN: unknown request ~w.~n", [Any]),
       loop(ErrFact)
   end.
-
-
-%%% ----------------------------------------------------------------------------
-%%% Callbacks.
-%%% ----------------------------------------------------------------------------
-
-
-%%% ----------------------------------------------------------------------------
-%%% Private helper functions.
-%%% ----------------------------------------------------------------------------

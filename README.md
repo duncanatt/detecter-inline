@@ -1,5 +1,6 @@
-# detecter-inline
-Source code and system for CAV2020 submission
+# Introduction
+
+detectEr is an inline monitoring tool
 
 
 
