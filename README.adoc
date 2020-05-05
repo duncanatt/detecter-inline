@@ -66,11 +66,12 @@ The function `test` in module `example` takes two parameters, `A` and `B`, where
 //
 A property specification that targets the function `test` is specified as follows:
 
+[subs=+quotes]
 ----
-with
+*with*
   example:test(A, B) when A >= 0, A =< 10
-monitor
-  <property in SHMLnf>.
+*monitor*
+  _property in SHML~nf~_.
 ----
 ====
 
@@ -127,7 +128,7 @@ The property reads as: "the parent process `P` cannot fork a child process `C` u
 ----
 *with*
   parent:start()
-monitor
+*monitor*
     and([P -> C, child:init([Id, _]) when Id < 0]ff)
 ----
 
