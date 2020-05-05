@@ -10,6 +10,7 @@ v0.9, 04-05-2020 // Star Wars Day ^_^
 //:sectnums:
 
 
+
 // Github-specific styling.
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -20,7 +21,7 @@ ifdef::env-github[]
 endif::[]
 
 // Shields.
-image::https://img.shields.io/badge/License-GPLv3-blue.svg[link="https://www.gnu.org/licenses/gpl-3.0"]
+image::https://img.shields.io/badge/license-GPLv3-blue[link="https://www.gnu.org/licenses/gpl-3.0"]
 image::https://img.shields.io/badge/version-v0.9-yellow[]
 
 `detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
@@ -34,7 +35,6 @@ The modified syntax tree is compiled by `detectEr` into an executable form which
 The instrumented instructions perform the runtime analysis in _synchronous_ fashion as the program executes.
 //
 Our tool is developed in the Erlang language and for the Erlang eco-system.
-
 
 toc::[]
 
@@ -53,7 +53,26 @@ More than one property may be specified in a single script file, albeit separate
 //
 A specification must target _one_ Erlang function pattern, and may optionally include simple _guard statements_.
 //
-The guard specification format follows the one used by Erlang, the only difference being that guard functions (_e.g._ `is_pid/1`)
+The guard specification format follows the one used by Erlang, the only difference being that guard functions (_e.g._ `is_pid/1`, `is_alive/1`, _etc._) are currently not supported.
+//
+Patterns and guards on Erlang binaries, bitstrings and maps will be implemented in future releases.
+//
+Specifications can only target function calls, _i.e._, `Mod:Fun(Args)`, that have been exported from Erlang modules and invoked via `erlang:spawn/3` or `erlang:spawn/4`.
+
+.{zwsp}
+====
+The function `test` in module `example` takes two parameters, `A` and `B`, where `A` is an integer in the closed interval [0, 10].
+//
+A property specification that targets the function `test` is specified as follows:
+----
+with
+  example:test(A, B) when A >= 0, A =< 10
+monitor
+  <property in SHMLnf>.
+----
+====
+
+
 
 
 
