@@ -25,6 +25,8 @@ image:https://img.shields.io/badge/version-v0.9-yellow[]
 
 `detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
 //
+This logic fragment is used to specify _invariants_ about the system under scrutiny.
+//
 `detectEr` assumes access to the source code of the program to be monitored.
 //
 It instruments monitoring instructions into the target program via _code injection_ by manipulating its parsed abstract syntax tree.
@@ -74,7 +76,7 @@ A property specification that targets the function `test` is specified as follow
 ----
 ====
 
-The property itself, `_property in SHMLnf_`, is written using the grammar defined next.
+The property itself, `_property in SHML~nf~_`, is written using the grammar defined next.
 
 
 === The SHML~nf~ grammar
@@ -84,14 +86,16 @@ The SHML~nf~ grammar is defined by the following BNF:
 [subs="+quotes"]
 ----
 <SHML~nf~> ::= *ff*  <1>
-          | _X_  <2>
-          | max(_X_. <SHML~nf~>)  <3>
-          | and(<SHML~nf~ list>).  <4>
+          | and(<SHML~nf~ list>)  <2>
+          | _X_  <3>
+          | max(_X_. <SHML~nf~>).  <4>
+
 ----
 <1> Falsity, an atom
-<2> Recursion variable specified as a standard Erlang variable
-<3> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHML~nf~>`
-<4> A sequence of comma-separated *conjuncts* where each conjunct is a sub-formula `<SHML~nf~>` that starts with a necessity `[<ACTION>]<SHML~nf~>`.
+<2> A sequence of comma-separated *conjuncts* where each conjunct is a sub-formula `<SHML~nf~>` that starts with a necessity `[<ACTION>]<SHML~nf~>`.
+<3> Recursion variable specified as a standard Erlang variable
+<4> Maximal fix-point that specify recursive loops comprised of one variable and the sub-formula `<SHML~nf~>`
+
 
 A necessity, specified by `[]` contains the `<ACTION>` that is matched with the trace event exhibited by the system.
 //
@@ -141,6 +145,30 @@ We use the Erlang anonymous variable `_` to bind `StartCnt` since this value is 
 
 .{zwsp}
 ====
+Apart from checking that the parent process does not fork child processes with negative IDs, this property also requires that it does not terminate.
+//
+The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` such that the `Id` assigned is negative *AND* it cannot terminate"
+
+[subs="+quotes,+macros"]
+----
+*with*
+  parent:start()
+*monitor*
+  and([P -> C, child:init([Id, _]) when Id < 0] *ff*, [P pass:[**] aborted] *ff*).
+----
+//
+The outer `and(...)` is comprised of a list with two necessities.
+//
+Necessities in a list are conjoined.
+//
+The first matches the action `P -> C, child:init([pass:[_], pass:[_]])` to the fork event exhibited by `P`.
+//
+The second matches the action `P ** aborted` to the termination event exhibited by `P`.
+====
+
+
+.{zwsp}
+====
 This property checks that the parent process does not fork a child process and terminates immediately after with the reason `aborted`.
 //
 The property below reads as: "the parent process `P` cannot fork a child process `C` via the function `child:init(Id, StartCnt)` and terminate immediately with the reason `aborted` ".
@@ -153,9 +181,9 @@ The property below reads as: "the parent process `P` cannot fork a child process
   and([P -> C, child:init([_, _])] and([P pass:[**] aborted] *ff*)).
 ----
 //
-The outer `and(...)` construct consists of a *single necessity* that binds the action `P -> C, child:init([pass:[_], pass:[_]])` to the fork event exhibited by `P`.
+The outer `and(...)` construct consists of a *single necessity* that matches the action `P -> C, child:init([pass:[_], pass:[_]])` to the fork event exhibited by `P`.
 //
-Similarly, the inner `and(...)` binds the only necessity `[P ** aborted]` to the termination event exhibited by `P`.
+Similarly, the inner `and(...)` matches the only action `P ** aborted` to the termination event exhibited by `P`.
 //
 We remark that, following the SHML~nf~ grammar given above, nesting `and` constructs, _i.e._, `and([...] and([...], ...))`, enables us to encode necessity _sequences_.
 ====
