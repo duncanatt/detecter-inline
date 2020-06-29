@@ -23,9 +23,9 @@ endif::[]
 image:https://img.shields.io/badge/license-GPLv3-blue[link="https://www.gnu.org/licenses/gpl-3.0"]
 image:https://img.shields.io/badge/version-v0.9-yellow[]
 
-`detectEr` is an inline monitoring tool that synthesised runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_ (HML__nf__).
+`detectEr` is an inline monitoring tool that synthesises runtime monitors from correctness properties specified in syntactic subset of Hennessy-Milner Logic with recursion that is in its _normal form_.
 //
-This logic fragment is used to specify _invariants_ about the system under scrutiny.
+This logic fragment is used to specify _invariants_ about the system under scrutiny; we will refer to this logic fragment as _safety HML_, or sHML~nf~ for short.
 //
 `detectEr` assumes access to the source code of the program to be monitored.
 //
