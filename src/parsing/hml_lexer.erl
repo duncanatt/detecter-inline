@@ -12,15 +12,14 @@
 -export([format_error/1]).
 
 %% User code. This is placed here to allow extra attributes.
--file("priv/hml_lexer.xrl", 140).
+-file("priv/hml_lexer.xrl", 137).
 
 %% String conversion macros.
 -define(to_atom(String), list_to_atom(String)).
 -define(to_integer(String), list_to_integer(String)).
 -define(to_float(String), list_to_float(String)).
 -define(to_pid(String), list_to_pid(String)).
--define(to_string(String), lists:sublist(String, 2, length(String) - 2)).
--define(to_atom_special(String), lists:sublist(String, 2, length(String) - 2)).
+-define(no_quotes(String), lists:sublist(String, 2, length(String) - 2)).
 
 %% Generates the string token from the specified list of characters.
 string_gen([$\\|Cs]) ->
@@ -358,7 +357,7 @@ adjust_line(T, A, [_|Cs], L) ->
 %% return signal either an unrecognised character or end of current
 %% input.
 
--file("src/parsing/hml_lexer.erl", 360).
+-file("src/parsing/hml_lexer.erl", 359).
 yystate() -> 60.
 
 yystate(67, [116|Ics], Line, Tlen, _, _) ->
@@ -801,17 +800,13 @@ yystate(32, [C|Ics], Line, Tlen, _, _) when C >= 93 ->
     yystate(48, Ics, Line, Tlen+1, 13, Tlen);
 yystate(32, Ics, Line, Tlen, _, _) ->
     {13,Tlen,Ics,Line,32};
-yystate(31, [163|Ics], Line, Tlen, Action, Alen) ->
+yystate(31, [10|Ics], Line, Tlen, Action, Alen) ->
+    yystate(23, Ics, Line+1, Tlen+1, Action, Alen);
+yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 0, C =< 9 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(31, [33|Ics], Line, Tlen, Action, Alen) ->
+yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 11, C =< 38 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 36, C =< 38 ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 40, C =< 46 ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 48, C =< 91 ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 93, C =< 126 ->
+yystate(31, [C|Ics], Line, Tlen, Action, Alen) when C >= 40 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
 yystate(31, Ics, Line, Tlen, Action, Alen) ->
     {Action,Alen,Tlen,Ics,Line,31};
@@ -893,19 +888,15 @@ yystate(24, [C|Ics], Line, Tlen, Action, Alen) when C >= 95 ->
     yystate(48, Ics, Line, Tlen+1, Action, Alen);
 yystate(24, Ics, Line, Tlen, Action, Alen) ->
     {Action,Alen,Tlen,Ics,Line,24};
-yystate(23, [163|Ics], Line, Tlen, Action, Alen) ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
 yystate(23, [39|Ics], Line, Tlen, Action, Alen) ->
     yystate(15, Ics, Line, Tlen+1, Action, Alen);
-yystate(23, [33|Ics], Line, Tlen, Action, Alen) ->
+yystate(23, [10|Ics], Line, Tlen, Action, Alen) ->
+    yystate(23, Ics, Line+1, Tlen+1, Action, Alen);
+yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 0, C =< 9 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 36, C =< 38 ->
+yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 11, C =< 38 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 40, C =< 46 ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 48, C =< 91 ->
-    yystate(23, Ics, Line, Tlen+1, Action, Alen);
-yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 93, C =< 126 ->
+yystate(23, [C|Ics], Line, Tlen, Action, Alen) when C >= 40 ->
     yystate(23, Ics, Line, Tlen+1, Action, Alen);
 yystate(23, Ics, Line, Tlen, Action, Alen) ->
     {Action,Alen,Tlen,Ics,Line,23};
@@ -1205,47 +1196,47 @@ yyaction(15, _, _, _) ->
 yyaction(_, _, _, _) -> error.
 
 -compile({inline,yyaction_0/1}).
--file("priv/hml_lexer.xrl", 79).
+-file("priv/hml_lexer.xrl", 77).
 yyaction_0(TokenLine) ->
      { token, { and_op, TokenLine } } .
 
 -compile({inline,yyaction_1/2}).
--file("priv/hml_lexer.xrl", 82).
+-file("priv/hml_lexer.xrl", 80).
 yyaction_1(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_2/2}).
--file("priv/hml_lexer.xrl", 85).
+-file("priv/hml_lexer.xrl", 83).
 yyaction_2(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_3/2}).
--file("priv/hml_lexer.xrl", 88).
+-file("priv/hml_lexer.xrl", 86).
 yyaction_3(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_4/2}).
--file("priv/hml_lexer.xrl", 91).
+-file("priv/hml_lexer.xrl", 89).
 yyaction_4(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_5/2}).
--file("priv/hml_lexer.xrl", 94).
+-file("priv/hml_lexer.xrl", 92).
 yyaction_5(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_6/2}).
--file("priv/hml_lexer.xrl", 97).
+-file("priv/hml_lexer.xrl", 95).
 yyaction_6(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_7/2}).
--file("priv/hml_lexer.xrl", 100).
+-file("priv/hml_lexer.xrl", 98).
 yyaction_7(TokenChars, TokenLine) ->
      { token, { var, TokenLine, ? to_atom (TokenChars) } } .
 
 -compile({inline,yyaction_8/2}).
--file("priv/hml_lexer.xrl", 103).
+-file("priv/hml_lexer.xrl", 101).
 yyaction_8(TokenChars, TokenLine) ->
      Atom = ? to_atom (TokenChars),
      { token,
@@ -1256,38 +1247,37 @@ yyaction_8(TokenChars, TokenLine) ->
      } .
 
 -compile({inline,yyaction_9/2}).
--file("priv/hml_lexer.xrl", 112).
+-file("priv/hml_lexer.xrl", 110).
 yyaction_9(TokenChars, TokenLine) ->
-     Atom = ? to_atom_special (TokenChars),
-     { token, { ? to_atom_special (TokenChars), TokenLine } } .
+     { token, { atom, TokenLine, ? to_atom (? no_quotes (TokenChars)) } } .
 
 -compile({inline,yyaction_10/2}).
--file("priv/hml_lexer.xrl", 116).
+-file("priv/hml_lexer.xrl", 113).
 yyaction_10(TokenChars, TokenLine) ->
      { token, { integer, TokenLine, ? to_integer (TokenChars) } } .
 
 -compile({inline,yyaction_11/2}).
--file("priv/hml_lexer.xrl", 119).
+-file("priv/hml_lexer.xrl", 116).
 yyaction_11(TokenChars, TokenLine) ->
      { token, { float, TokenLine, ? to_float (TokenChars) } } .
 
 -compile({inline,yyaction_12/2}).
--file("priv/hml_lexer.xrl", 122).
+-file("priv/hml_lexer.xrl", 119).
 yyaction_12(TokenChars, TokenLine) ->
      { token, { pid, TokenLine, ? to_pid (TokenChars) } } .
 
 -compile({inline,yyaction_13/2}).
--file("priv/hml_lexer.xrl", 125).
+-file("priv/hml_lexer.xrl", 122).
 yyaction_13(TokenChars, TokenLine) ->
-     { token, { string, TokenLine, ? to_string (TokenChars) } } .
+     { token, { string, TokenLine, ? no_quotes (TokenChars) } } .
 
 -compile({inline,yyaction_14/2}).
--file("priv/hml_lexer.xrl", 128).
+-file("priv/hml_lexer.xrl", 125).
 yyaction_14(TokenChars, TokenLine) ->
      { token, { ? to_atom (TokenChars), TokenLine } } .
 
 -compile({inline,yyaction_15/0}).
--file("priv/hml_lexer.xrl", 131).
+-file("priv/hml_lexer.xrl", 128).
 yyaction_15() ->
      skip_token .
 

@@ -67,9 +67,8 @@ MATH_OP                         = (\+|-|\*|/|div|rem)
 % Whitespace characters.
 WS                              = ([\s\t\n\r]|%.*)
 
-% Atom with special characters.
-ATOM                              = [a-zA-Z0-9.,\(\)\{\}\[\]<>!\?\@;:\`\~\|\-\+\=\*\$\£\^_&%]
-
+% Quoted atom.
+ATOM                            = [^']
 
 %%% ----------------------------------------------------------------------------
 %%% Lexical token rule definitions.
@@ -100,7 +99,7 @@ Rules.
 % Variable token.
 {UPPER_}+{ALPHA}*               : {token, {var, TokenLine, ?to_atom(TokenChars)}}.
 
-%%% Atom and keyword tokens.
+% Unquoted atom and keyword tokens.
 {LOWER}{ALPHA}*                 : Atom = ?to_atom(TokenChars),
                                   {token,
                                     case is_keyword(Atom) of
@@ -109,9 +108,8 @@ Rules.
                                     end
                                   }.
 
-% Atom and keyword tokens with special characters.
-'{ATOM}+'                       : Atom = ?to_atom_special(TokenChars),
-                                  {token, {?to_atom_special(TokenChars), TokenLine}}.
+% Quoted atom tokens.
+'{ATOM}+'                       : {token, {atom, TokenLine, ?to_atom(?no_quotes(TokenChars))}}.
 
 % Integer tokens.
 {DIGIT}+                        : {token, {integer, TokenLine, ?to_integer(TokenChars)}}.
@@ -123,7 +121,7 @@ Rules.
 <{DIGIT}+\.{DIGIT}+\.{DIGIT}+>  : {token, {pid, TokenLine, ?to_pid(TokenChars)}}.
 
 % String tokens.
-"(\\\^.|\\.|[^"])*"             : {token, {string, TokenLine, ?to_string(TokenChars)}}.
+"(\\\^.|\\.|[^"])*"             : {token, {string, TokenLine, ?no_quotes(TokenChars)}}.
 
 % Punctuation and meta symbol tokens.
 [()\[\]{}\,\.\;:]               : {token, {?to_atom(TokenChars), TokenLine}}.
@@ -143,8 +141,7 @@ Erlang code.
 -define(to_integer(String), list_to_integer(String)).
 -define(to_float(String), list_to_float(String)).
 -define(to_pid(String), list_to_pid(String)).
--define(to_string(String), lists:sublist(String, 2, length(String) - 2)).
--define(to_atom_special(String), lists:sublist(String, 2, length(String) - 2)).
+-define(no_quotes(String), lists:sublist(String, 2, length(String) - 2)).
 
 %% Generates the string token from the specified list of characters.
 string_gen([$\\|Cs]) ->
