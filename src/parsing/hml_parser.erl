@@ -35,7 +35,7 @@ build_mfa(Mod, Fun, Exprs, ClauseGuard) ->
 
 
 %%hml_eval:eval_string("with mod:fun(X, Y, Z) when X > 0, Y =:= \"hello\"; Z =< 20.5 monitor max X.[Pid ! {req, B}]ff and [Pid2 ? {resp, A}]X").
--file("/usr/local/Cellar/erlang/22.1/lib/erlang/lib/parsetools-2.1.8/include/yeccpre.hrl", 0).
+-file("/usr/local/Cellar/erlang/22.2.1/lib/erlang/lib/parsetools-2.1.8/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%

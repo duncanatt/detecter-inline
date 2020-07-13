@@ -44,7 +44,7 @@ UPPER                           = [A-Z]
 UPPER_                          = [A-Z_]
 
 % Alpha-numeric token that includes the underscore symbol.
-ALPHA                           = [a-zA-Z0-9_]
+ALPHA                           = [a-zA-Z0-9_@]
 
 % Boolean operators.
 BOOL_OP                         = (and|or|andalso|orelse|not|xor)
@@ -66,6 +66,9 @@ MATH_OP                         = (\+|-|\*|/|div|rem)
 
 % Whitespace characters.
 WS                              = ([\s\t\n\r]|%.*)
+
+% Atom with special characters.
+ATOM                              = [a-zA-Z0-9.,\(\)\{\}\[\]<>!\?\@;:\`\~\|\-\+\=\*\$\£\^_&%]
 
 
 %%% ----------------------------------------------------------------------------
@@ -97,7 +100,7 @@ Rules.
 % Variable token.
 {UPPER_}+{ALPHA}*               : {token, {var, TokenLine, ?to_atom(TokenChars)}}.
 
-% Atom and keyword tokens.
+%%% Atom and keyword tokens.
 {LOWER}{ALPHA}*                 : Atom = ?to_atom(TokenChars),
                                   {token,
                                     case is_keyword(Atom) of
@@ -105,6 +108,10 @@ Rules.
                                       false -> {atom, TokenLine, Atom}
                                     end
                                   }.
+
+% Atom and keyword tokens with special characters.
+'{ATOM}+'                       : Atom = ?to_atom_special(TokenChars),
+                                  {token, {?to_atom_special(TokenChars), TokenLine}}.
 
 % Integer tokens.
 {DIGIT}+                        : {token, {integer, TokenLine, ?to_integer(TokenChars)}}.
@@ -137,6 +144,7 @@ Erlang code.
 -define(to_float(String), list_to_float(String)).
 -define(to_pid(String), list_to_pid(String)).
 -define(to_string(String), lists:sublist(String, 2, length(String) - 2)).
+-define(to_atom_special(String), lists:sublist(String, 2, length(String) - 2)).
 
 %% Generates the string token from the specified list of characters.
 string_gen([$\\|Cs]) ->
