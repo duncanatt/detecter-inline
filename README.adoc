@@ -195,7 +195,7 @@ The example that we cover next assumes that Erlang is installed and that you are
 //
 Before proceeding, the source code should be compiled.
 //
-This can be done from the command prompt using the make file target `make clean`.
+This can be done from the command prompt using the make file target `make compile`.
 //
 The Erlang REPL can be conveniently launched from the current directory by typing `make run`.
 //
