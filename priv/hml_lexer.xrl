@@ -68,7 +68,7 @@ MATH_OP                         = (\+|-|\*|/|div|rem)
 WS                              = ([\s\t\n\r]|%.*)
 
 % Quoted atom.
-ATOM                            = [^']
+ATOM                            = [^'] % TODO: Needs to be fixed to accept \'
 
 %%% ----------------------------------------------------------------------------
 %%% Lexical token rule definitions.
