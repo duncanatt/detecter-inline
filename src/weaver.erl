@@ -761,13 +761,7 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
   % the process dictionary, the call to dispatch the 'init' event, and the call
   % that applies the original MFA to be forked.
   WrapFun = abs_fun(Line, [abs_fun_clause(Line, [], [], [PutCall, SubmitCall0, ApplyCall])]),
-  SpawnCall = abs_local_call(Line, abs_atom(Line, spawn), [WrapFun]),
-  PidMatch = abs_match(Line, PidVar, SpawnCall),
-
-%%  IoFormatCall = abs_remote_call(Line, abs_atom(Line, io), abs_atom(Line, format), [abs_string(Line, "Monitor instrumented for MFA ~w in process ~w.~n"), abs_list(Line, [abs_tuple(Line, SpawnArgsVars), PidVar])]),
-%%  IoFormatCall2 = abs_remote_call(Line, abs_atom(Line, io), abs_atom(Line, format), [abs_string(Line, "Monitor NOT instrumented for MFA ~w.~n"), abs_list(Line, [abs_tuple(Line, SpawnArgsVars)])]),
-
-  %%  Call = abs_remote_call(Line, , [abs_string(Line, "Hello ~p ~p"), abs_list(Line, [abs_atom(Line, test), abs_list(Line, [abs_string(Line, "Duncan"), abs_integer(Line, 36)])])]),
+  SpawnCall = abs_local_call(Line, abs_atom(Line, How), [WrapFun]),
 
   % Create 'fork' event for parent process and dispatch to monitor.
   SubmitCall = create_dispatch(Line, abs_tuple(Line, [
@@ -781,10 +775,12 @@ weave_remote_spawn({call, Line, {remote, _, ModSpawn = {atom, _, erlang}, FunSpa
   % monitor code together with the 'init' event.
   Case = abs_case(Line, MfaSpecCall, [
     abs_case_clause(Line, [abs_atom(Line, undefined)], [], [abs_remote_call(Line, ModSpawn, FunSpawn, SpawnArgsVars)]),
-    abs_case_clause(Line, [abs_tuple(Line, [abs_atom(Line, ok), MonFunVar])], [], [PidParentMatch, PidMatch, SubmitCall])
+    abs_case_clause(Line, [abs_tuple(Line, [abs_atom(Line, ok), MonFunVar])], [], [PidParentMatch, SpawnCall])
   ]),
 
-  {Id0, Case}.
+  PidMatch = abs_match(Line, PidVar, Case),
+  Block = abs_block(Line, [PidMatch, SubmitCall, PidVar]),
+  {Id0, Block}.
 
 
 %%% ----------------------------------------------------------------------------
